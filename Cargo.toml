@@ -1,8 +1,18 @@
 [package]
 name = "anysexpr"
 version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Christian Jaeger <ch@christianjaeger.ch>"]
+license = "MIT/Apache-2.0"
+repository = "https://github.com/pflanze/anysexpr"
+description = "(Universal) S-Expression parser and formatter"
+edition = "2018"
+# categories = ["data-formats"] ?
+# readme = "README.md"
 
 [dependencies]
+anyhow = "1.0"
+thiserror = "1.0.37"
+kstring = "1.0.6"
+genawaiter = { version = "0.99.1", default-features = false }
+num = "0.4.0"
+utf-8 = "0.7.6"
