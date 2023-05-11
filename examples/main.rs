@@ -21,10 +21,10 @@ struct Args {
     #[clap(short, long, value_parser)]
     ast: bool,
     /// Print the parsed data
-    #[clap(short, long, value_parser)]
+    #[clap(long, value_parser)]
     print: bool,
     /// Show the token position (only with --print and no --ast)
-    #[clap(short, long, value_parser)]
+    #[clap(long, value_parser)]
     pos: bool,
     /// Show the whitespace (only with --print and no --ast)
     #[clap(short, long, value_parser)]
