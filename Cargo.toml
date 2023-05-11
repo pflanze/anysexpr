@@ -16,3 +16,6 @@ kstring = "1.0"
 genawaiter = { version = "0.99", default-features = false }
 num = "0.4"
 utf-8 = "0.7"
+
+[dev-dependencies]
+clap = { version = "3.2.23", features = ["derive"] }
