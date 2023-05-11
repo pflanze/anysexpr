@@ -112,7 +112,9 @@ impl std::fmt::Display for VValue {
                 let len = v.len();
                 for (i, item) in v.iter().enumerate() {
                     item.fmt(f)?;
-                    if i + 1 < len {
+                    if i + 2 < len {
+                        f.write_char(' ')?;
+                    } else if i + 1 < len {
                         if *impr {
                             f.write_str(" . ")?;
                         } else {
