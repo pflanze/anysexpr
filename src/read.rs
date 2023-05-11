@@ -8,27 +8,51 @@ use anyhow::{Result, bail};
 use std::fs::File;
 
 
+// Read and fill a vector of values up to the expected end paren, and
+// return the vector and the position of a Dot, if any. Checking
+// whether a dot is allowed is left to the caller. Checks whether the
+// right number of items before and after the dot appeared is done by
+// slurp.
 fn slurp(
     locator: &dyn Fn(Pos) -> String,
     ts: &mut impl Iterator<Item = Result<TokenWithPos,
                                          ParseError>>,
     opt_parenkind: Option<(Parenkind, Pos)>)
-    -> Result<Vec<VValue>>
+    -> Result<(Vec<VValue>, Option<Pos>)>
 {
     let mut v = Vec::new();
     let mut current_keyword2: Option<KString> = None;
-    let mut seen_dot: Option<Pos> = None;
+    let mut seen_dot: Option<(Pos, usize)> = None;
+    let result = |seen_dot, v: Vec<VValue>| {
+        if let Some((dotpos, i)) = seen_dot {
+            let n_items_after_dot = v.len() - i;
+            match n_items_after_dot {
+                1 => return Ok((v, Some(dotpos))),
+                0 => bail!("missing item after dot {}",
+                           locator(dotpos)),
+                _ => bail!("expecting one item after dot, got {} {}",
+                           n_items_after_dot,
+                           locator(dotpos)),
+            }
+        } else {
+            return Ok((v, None));
+        }
+    };        
     while let Some(te) = ts.next() {
         let TokenWithPos(t, pos) = te?;
         match t {
             Token::Dot => {
-                if let Some(oldpos) = seen_dot {
+                if let Some((oldpos, _)) = seen_dot {
                     bail!("dot already appeared {}, again {}",
                           locator(oldpos),
                           locator(pos))
                 } else {
-                    seen_dot = Some(pos);
-                    // XXX check that it is followed by another item!
+                    let i = v.len();
+                    if i == 0 {
+                        bail!("dot without preceding item {}",
+                              locator(pos))
+                    }
+                    seen_dot = Some((pos, i));
                 }
             }
             Token::Quote => {
@@ -43,9 +67,9 @@ fn slurp(
             Token::Whitespace(_) => {}
             Token::Comment(_, _) => {}
             Token::Open(pk) => {
-                let e = slurp(locator, ts, Some((pk, pos)))?;
+                let (e, maybedot) = slurp(locator, ts, Some((pk, pos)))?;
                 v.push(VValue::List(pk,
-                                    seen_dot.is_some(),
+                                    maybedot.is_some(),
                                     e));
             }
             Token::Close(pk) => {
@@ -56,7 +80,7 @@ fn slurp(
                                   Atom::Keyword2(kw),
                                   locator(pos))
                         } else {
-                            return Ok(v);
+                            return result(seen_dot, v)
                         }
                     } else {
                         bail!("'{}' {} expects '{}', got '{}' {}",
@@ -107,7 +131,7 @@ fn slurp(
               parenkind.closing(),
               locator(startpos))
     } else {
-        Ok(v)
+        return result(seen_dot, v)
     }
 }
 
@@ -121,9 +145,16 @@ pub fn read(
         furnish_comments: false,
     };
     let mut ts = parse(&mut cs, settings);
-    slurp(
-        &|pos| format!("at {path:?}{pos}"),
-        &mut ts, None)
+    let locator = |pos| format!("at {path:?}{pos}");
+    let (v, maybedot) = slurp(
+        &locator,
+        &mut ts, None)?;
+    if let Some(pos) = maybedot {
+        bail!("dot outside list context {}",
+              locator(pos))
+    } else {
+        Ok(v)
+    }
 }
 
 pub fn read_file(path: &Path) -> Result<Vec<VValue>> {
