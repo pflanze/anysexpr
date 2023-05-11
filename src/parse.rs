@@ -160,6 +160,7 @@ fn read_delimited(startpos: Pos,
     }
 }
 
+// Returns (char, None) iff reached EOF
 fn read_while(c: char,
               startpos: Pos,
               cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
@@ -271,6 +272,10 @@ pub fn parse(
                                     TokenWithPos(
                                         Token::Whitespace(KString::from_ref(&tmp)),
                                         pos))).await;
+                            if mcp.is_none() {
+                                // avoid calling next() again!
+                                return
+                            }
                             maybe_next_c_pos = mcp;
                         }
                     }
@@ -299,6 +304,10 @@ pub fn parse(
                             } else {
                                 co.yield_(Err(ParseError::TooManySemicolons(pos))).await
                             }
+                        }
+                        if mcp.is_none() {
+                            // avoid calling next() again!
+                            return
                         }
                         maybe_next_c_pos = mcp;
                     }
@@ -361,6 +370,10 @@ pub fn parse(
                                             Token::Atom(
                                                 constructor(KString::from_ref(s))),
                                             pos))).await;
+                            }
+                            if mcp.is_none() {
+                                // avoid calling next() again!
+                                return
                             }
                             maybe_next_c_pos = mcp;
                         }
