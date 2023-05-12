@@ -350,8 +350,8 @@ fn is_whitespace_char(c: char) -> bool {
 
 #[derive(Debug)]
 pub struct ParseSettings {
-    pub furnish_whitespace: bool,
-    pub furnish_comments: bool,
+    pub whitespace: bool,
+    pub comments: bool,
 }
 
 pub fn parse(
@@ -393,7 +393,7 @@ pub fn parse(
             if let Some(t) = maybe_open_close(c) {
                 co.yield_(Ok(TokenWithPos(t, pos))).await;
             } else if c.is_whitespace() {
-                if settings.furnish_whitespace {
+                if settings.whitespace {
                     tmp.clear();
                     match read_while(c, pos, &mut cs, is_whitespace_char, &mut tmp) {
                         Err(e) => {
@@ -423,7 +423,7 @@ pub fn parse(
                         return;
                     }
                     Ok((_lastc, mcp)) => {
-                        if settings.furnish_comments {
+                        if settings.comments {
                             let (start, rest) =
                                 take_while_and_rest(&tmp, |c| c == ';');
                             let nsemicolons = start.len();

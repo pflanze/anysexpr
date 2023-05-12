@@ -141,8 +141,8 @@ pub fn read(
 ) -> Result<Vec<VValue>> {
     let mut cs = buffered_chars(fh);
     let settings = ParseSettings {
-        furnish_whitespace: false,
-        furnish_comments: false,
+        whitespace: false,
+        comments: false,
     };
     let mut ts = parse(&mut cs, settings);
     let locator = |pos| format!("at {path:?}{pos}");
