@@ -7,7 +7,7 @@ repository = "https://github.com/pflanze/anysexpr"
 description = "(Universal) S-Expression parser and formatter"
 edition = "2018"
 # categories = ["data-formats"] ?
-# readme = "README.md"
+readme = "README.md"
 
 [dependencies]
 anyhow = "1.0"
