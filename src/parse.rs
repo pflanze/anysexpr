@@ -1,7 +1,7 @@
 use crate::pos::Pos;
 use crate::value::{Atom, Parenkind};
 use crate::number::R5RSNumber;
-use num::BigInt;
+use num::{BigInt, rational::Ratio};
 use kstring::KString;
 use thiserror::Error;
 use genawaiter::rc::Gen;
@@ -100,31 +100,31 @@ impl std::fmt::Display for Token {
 pub struct TokenWithPos(pub Token, pub Pos);
 
 
-fn read_number(c: char,
-               startpos: Pos,
-               cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>)
-               -> Result<(Option<(char, Pos)>, Token), ParseError> {
-    let mut n = BigInt::from(c.to_digit(10).unwrap());
-    let mut lastpos = startpos;
-    loop {
-        if let Some(r) = cs.next() {
-            match r {
-                Err(e) => return Err(ParseError::IOError(lastpos, e)),
-                Ok((c, pos)) => {
-                    if c.is_ascii_digit() {
-                        n = n * 10 + c.to_digit(10).unwrap();
-                        lastpos = pos;
-                    } else {
-                        return Ok((Some((c, pos)),
-                                   Token::Atom(Atom::Number(R5RSNumber::Integer(n)))));
-                    }
+fn read_number(is_neg: bool, s: &str) -> Option<R5RSNumber> {
+    let mut n: BigInt = 0.into();
+    let mut cs = s.chars();
+    while let Some(c) = cs.next() {
+        if c.is_ascii_digit() {
+            n = n * 10 + c.to_digit(10).unwrap();
+        } else if c == '/' {
+            let numer = n;
+            let mut n: BigInt = 0.into();
+            while let Some(c) = cs.next() {
+                if c.is_ascii_digit() {
+                    n = n * 10 + c.to_digit(10).unwrap();
+                } else {
+                    return None;
                 }
             }
+            let denom = n;
+            let n = Ratio::<BigInt>::new(numer, denom);
+            return Some(R5RSNumber::Rational(Box::new(if is_neg { -n } else { n })))
         } else {
-            return Ok((None,
-                       Token::Atom(Atom::Number(R5RSNumber::Integer(n)))));
+            // XXX: floating point, complex, and all the mixes.
+            return None
         }
     }
+    Some(R5RSNumber::Integer(if is_neg { -n } else { n }))
 }
 
 fn delimiter2maybe_stringlike_constructor(c: char) -> Option<fn(KString) -> Atom> {
@@ -357,7 +357,7 @@ fn char2special_token(c: char) -> Option<Token> {
     }
 }    
 
-fn is_symbol_char(c: char) -> bool {
+fn is_symbol_or_number_char(c: char) -> bool {
     c.is_whitespace() == false
         && char2special_token(c).is_none()
         && delimiter2maybe_stringlike_constructor(c).is_none()
@@ -367,6 +367,10 @@ fn is_symbol_char(c: char) -> bool {
 
 fn is_whitespace_char(c: char) -> bool {
     c.is_whitespace()
+}
+
+fn is_digit(c: char) -> bool {
+    c.is_ascii_digit()
 }
 
 #[derive(Debug)]
@@ -486,52 +490,52 @@ pub fn parse(
             } else if let Some(t) = char2special_token(c) {
                 co.yield_(Ok(TokenWithPos(t, pos))).await;
             } else {
-                if c.is_ascii_digit() {
-                    // XXX todo: fall back to symbol/keyword parsing for non-numbers
-                    match read_number(c, pos, &mut cs) {
-                        Ok((mcp, t)) => {
-                            co.yield_(Ok(TokenWithPos(t, pos))).await;
-                            maybe_next_c_pos = mcp;
-                        }
-                        Err(e) => {
-                            co.yield_(Err(e)).await;
-                            return;
-                        }
+                // Numbers, symbols, keywords, Dot
+                tmp.clear();
+                match read_while(c, pos, &mut cs, is_symbol_or_number_char, &mut tmp) {
+                    Err(e) => {
+                        co.yield_(Err(e)).await;
+                        return;
                     }
-                } else {
-                    // Symbols, keywords, Dot
-                    tmp.clear();
-                    match read_while(c, pos, &mut cs, is_symbol_char, &mut tmp) {
-                        Err(e) => {
-                            co.yield_(Err(e)).await;
-                            return;
-                        }
-                        Ok((lastc, mcp)) => {
+                    Ok((lastc, mcp)) => {
+                        let r = (|| {
                             if tmp.len() == 1 && lastc == '.' {
-                                co.yield_(Ok(TokenWithPos(Token::Dot, pos))).await;
-                            } else {
-                                let (constructor, s)
-                                    : (fn(KString) -> Atom, &str) =
-                                    if c == ':' {
-                                        (Atom::Keyword1, &tmp[1..])
-                                    } else if lastc == ':' {
-                                        (Atom::Keyword2, &tmp[0..tmp.len()-1])
-                                    } else {
-                                        (Atom::Symbol, &tmp[0..])
-                                    };
-                                co.yield_(
-                                    Ok(
-                                        TokenWithPos(
-                                            Token::Atom(
-                                                constructor(KString::from_ref(s))),
-                                            pos))).await;
+                                return Ok(TokenWithPos(Token::Dot, pos));
                             }
-                            if mcp.is_none() {
-                                // avoid calling next() again!
-                                return
+                            if is_digit(c) {
+                                if let Some(r) = read_number(false, &tmp) {
+                                    return Ok(TokenWithPos(
+                                        Token::Atom(Atom::Number(r)),
+                                        pos))
+                                }
+                            } else if c == '-' {
+                                if let Some(r) = read_number(true, &tmp[1..]) {
+                                    return Ok(TokenWithPos(
+                                        Token::Atom(Atom::Number(r)),
+                                        pos))
+                                }
                             }
-                            maybe_next_c_pos = mcp;
+                            let (constructor, s)
+                                : (fn(KString) -> Atom, &str) =
+                                if c == ':' {
+                                    (Atom::Keyword1, &tmp[1..])
+                                } else if lastc == ':' {
+                                    (Atom::Keyword2, &tmp[0..tmp.len()-1])
+                                } else {
+                                    (Atom::Symbol, &tmp[0..])
+                                };
+                            Ok(
+                                TokenWithPos(
+                                    Token::Atom(
+                                        constructor(KString::from_ref(s))),
+                                    pos))
+                        })();
+                        co.yield_(r).await;
+                        if mcp.is_none() {
+                            // avoid calling next() again!
+                            return
                         }
+                        maybe_next_c_pos = mcp;
                     }
                 }
             }

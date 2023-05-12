@@ -18,7 +18,7 @@ This is an S-Expression parser and formatter with the following features:
   Common Lisp, ..) via runtime (and compile-time?) settings.
 
 This is an early alpha version. Even some basics are unfinished
-(non-integer numbers, quoting sugar, some comment styles, ..).
+(inexact and complex numbers, quoting sugar, some comment styles, ..).
 
 The author is quite new in Rust but quite invested in lisps, this
 will evolve.
@@ -26,7 +26,7 @@ will evolve.
 ## Todo
 
 * string escape features on printing
-* numbers other than integers
+* inexact and complex numbers
 * chars
 * `#f`, `#t`
 * implement quote/quasiquote/unquote parsing
