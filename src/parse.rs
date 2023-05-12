@@ -27,6 +27,12 @@ pub enum ParseError {
     UnexpectedEOF(Pos, char),
     #[error("too many semicolons to start a comment {0}")]
     TooManySemicolons(Pos),
+    #[error("invalid escaped character '{1}' {0}")]
+    InvalidEscapedChar(Pos, char),
+    #[error("not a hex digit: '{1}' {0}")]
+    NonHexDigit(Pos, char),
+    #[error("invalid code point {1} {0}")]
+    InvalidCodePoint(Pos, u32),
 }
 
 pub fn maybe_open_close(c: char) -> Option<Token> {
@@ -125,6 +131,70 @@ fn delimiter2maybe_stringlike_constructor(c: char) -> Option<fn(KString) -> Atom
     }
 }
 
+fn parse_hexdigit(c: char) -> Option<u32> {
+    if '0' <= c && c <= '9' {
+        Some(c as u32 - '0' as u32)
+    } else if 'a' <= c && c <= 'f' {
+        Some(c as u32 - 'a' as u32 + 10)
+    } else if 'A' <= c && c <= 'F' {
+        Some(c as u32 - 'F' as u32 + 10)
+    } else {
+        None
+    }
+}
+
+// Reads exactly numdigits digits, or up to the given delimiter, in
+// which case numdigits is the max digits allowed [XX excl delimiter?]
+fn read_hex(
+    outerdelimiter: char,
+    cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
+    lastpos: Pos,
+    delimiter: Option<char>,
+    numdigits: u32,
+) -> Result<u32, ParseError> {
+    let mut res: u32 = 0;
+    let mut lastpos = lastpos;
+    for _ in 0..numdigits {
+        if let Some(r) = cs.next() {
+            match r {
+                Err(e) => return Err(ParseError::IOError(lastpos, e)),
+                Ok((c, pos)) => {
+                    if let Some(delim) = delimiter {
+                        if c == delim {
+                            return Ok(res)
+                        }
+                    }
+                    if let Some(n) = parse_hexdigit(c) {
+                        res *= 16;
+                        res += n;
+                    } else {
+                        return Err(ParseError::NonHexDigit(pos, c))
+                    }
+                    lastpos = pos;
+                }
+            }
+        } else {
+            return Err(ParseError::UnexpectedEOF(lastpos, outerdelimiter));
+        }
+    }
+    Ok(res) 
+}
+
+fn read_hex_char(
+    outerdelimiter: char,
+    cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
+    lastpos: Pos,
+    delimiter: Option<char>,
+    numdigits: u32,
+) -> Result<char, ParseError> {
+    let code = read_hex(outerdelimiter, cs, lastpos, delimiter, numdigits)?;
+    if let Some(c) = char::from_u32(code) {
+        Ok(c)
+    } else {
+        Err(ParseError::InvalidCodePoint(lastpos, code))
+    }
+}
+
 fn read_delimited(startpos: Pos,
                   cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
                   delimiter: char,
@@ -140,8 +210,72 @@ fn read_delimited(startpos: Pos,
                 Ok((c, pos)) => {
                     lastpos = pos;
                     if escaped {
-                        // XXX \n etc., and unicode escapes
-                        out.push(c);
+                        // https://small.r7rs.org/attachment/r7rs.pdf 6.7. Strings
+                        let replacement = match c {
+                            'a' => "\x07", // alarm
+                            'b' => "\x08", // backspace
+                            't' => "\t",
+                            'n' => "\n",
+                            'r' => "\r",
+                            // (Not in R7RS(?), but why not?: man ascii
+                            'v' => "\x0B",
+                            'f' => "\x0C",
+                            // Supported by Guile (Gambit reads more digits):
+                            '0' => "\0",
+                            // /Not in R7RS)
+                            '\\' => "\\",
+                            '"' => "\"", // possible delimiter
+                            '\'' => "\'",
+                            '|' => "|", // possible delimiter
+                            '\n' => "",
+                            'u' => {
+                                out.push(
+                                    read_hex_char(delimiter, cs, pos, None, 4)?);
+                                ""
+                            }
+                            'U' => {
+                                // Supported by Gambit, not Guile
+                                out.push(
+                                    read_hex_char(delimiter, cs, pos, None, 8)?);
+                                ""
+                            }
+                            'x' => {
+                                // R7RS: Always terminated by a ';'
+                                out.push(
+                                    read_hex_char(delimiter, cs, pos, Some(';'), 2)?);
+                                // XX Guile: always read exactly 2 digits
+                                // XX Gambit: reads as many digits as there are (huh)
+                                ""
+                            }
+                            _ => {
+                                if c.is_ascii_digit() {
+                                    // Not in R7RS(?), but supported
+                                    // by Gambit Scheme, but not by
+                                    // Guile. Ignore?
+                                    
+                                    // How do these work?
+                                    // > (map char->integer (string->list "\322"))
+                                    // (210)
+                                    // > (map char->integer (string->list "\422"))
+                                    // (34 50)
+                                    // > (map char->integer (string->list "\0"))    
+                                    // (0)
+                                    // > (map char->integer (string->list "\00"))
+                                    // (0)
+                                    // > (map char->integer (string->list "\010"))
+                                    // (8)
+                                    // > (map char->integer (string->list "\10")) 
+                                    // (8)
+                                    // Gambit reads up to 3 digits, it
+                                    // seems, or rather until before the
+                                    // number exceepds 255?
+                                    todo!()
+                                } else {
+                                    return Err(ParseError::InvalidEscapedChar(pos, c))
+                                }
+                            }
+                        };
+                        out.push_str(replacement);
                         escaped = false;
                     } else {
                         if c == '\\' {

@@ -25,7 +25,7 @@ will evolve.
 
 ## Todo
 
-* string escape features (\n etc., unicode code points)
+* string escape features on printing
 * numbers other than integers
 * chars
 * `#f`, `#t`
