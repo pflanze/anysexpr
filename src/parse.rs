@@ -24,7 +24,7 @@ pub enum ParseError {
     // XX: should not use anyhow::Error in buffered_chars.rs
     IOError(Pos, anyhow::Error),
     #[error("unexpected EOF in string/symbol delimited by '{1}' starting {0}")]
-    UnexpectedEOF(Pos, char),
+    UnexpectedEOFInString(Pos, char),
     #[error("too many semicolons to start a comment {0}")]
     TooManySemicolons(Pos),
     #[error("invalid escaped character '{1}' {0}")]
@@ -190,7 +190,7 @@ fn read_hex(
                 }
             }
         } else {
-            return Err(ParseError::UnexpectedEOF(lastpos, outerdelimiter));
+            return Err(ParseError::UnexpectedEOFInString(lastpos, outerdelimiter));
         }
     }
     if let Some(delim) = delimiter {
@@ -312,7 +312,7 @@ fn read_delimited(startpos: Pos,
                 }
             }
         } else {
-            return Err(ParseError::UnexpectedEOF(startpos, delimiter));
+            return Err(ParseError::UnexpectedEOFInString(startpos, delimiter));
         }
     }
 }
