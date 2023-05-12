@@ -7,6 +7,7 @@ use kstring::KString;
 #[derive(Debug)]
 pub enum Atom {
     Bool(bool),
+    Char(char),
     String(KString),
     Symbol(KString),
     Keyword1(KString), // :foo
@@ -56,11 +57,54 @@ fn fmt_stringlike(f: &mut std::fmt::Formatter<'_>,
     }
 }
 
+
+
+// XX these must be configurable in the future
+// R7RS:
+
+pub fn char2name(c: char) -> Option<&'static str> {
+    match c {
+        '\x07' => Some("alarm"),
+        '\x08' => Some("backspace"),
+        '\x7F' => Some("delete"),
+        '\x1B' => Some("escape"),
+        '\n' => Some("newline"),
+        '\0' => Some("null"),
+        '\r' => Some("return"),
+        ' ' => Some("space"),
+        '\t' => Some("tab"),
+        _ => None
+    }
+}
+pub fn name2char(s: &str) -> Option<char> {
+    match s {
+        "alarm" => Some('\x07'),
+        "backspace" => Some('\x08'),
+        "delete" => Some('\x7F'),
+        "escape" => Some('\x1B'),
+        "newline" => Some('\n'),
+        "null" => Some('\0'),
+        "return" => Some('\r'),
+        "space" => Some(' '),
+        "tab" => Some('\t'),
+        _ => None
+    }
+}
+
+
 impl std::fmt::Display for Atom {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>)
            -> Result<(), std::fmt::Error> {
         match self {
             Atom::Bool(b) => f.write_fmt(format_args!("#{}", if *b { "t" } else { "f" })),
+            Atom::Char(c) => {
+                f.write_str("#\\")?;
+                if let Some(name) = char2name(*c) {
+                    f.write_str(name)
+                } else {
+                    f.write_char(*c)
+                }
+            }
             Atom::String(s) => fmt_stringlike(f, '"', s, true, false, false),
             Atom::Symbol(s) => fmt_stringlike(f, '|', s, false, false, false),
             Atom::Keyword1(s) => fmt_stringlike(f, '|', s, false, true, false), // :foo

@@ -317,15 +317,18 @@ fn read_delimited(startpos: Pos,
     }
 }
 
-// Returns (char, None) iff reached EOF
-fn read_while(c: char,
+// Returns (, None) iff reached EOF;
+// returns (None, ) iff reached EOF at the begin and no c was given.
+fn read_while(c: Option<char>,
               startpos: Pos,
               cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
               accepted: fn(char) -> bool,
               out: &mut String)
-              -> Result<(char, Option<(char, Pos)>), ParseError> {
+              -> Result<(Option<char>, Option<(char, Pos)>), ParseError> {
     out.clear();
-    out.push(c);
+    if let Some(c) = c {
+        out.push(c);
+    }
     let mut lastc = c;
     let mut lastpos = startpos;
     loop {
@@ -336,7 +339,7 @@ fn read_while(c: char,
                     lastpos = pos;
                     if accepted(c) {
                         out.push(c);
-                        lastc = c;
+                        lastc = Some(c);
                     } else {
                         return Ok((lastc, Some((c, pos))));
                     }
@@ -422,7 +425,8 @@ pub fn parse(
             } else if c.is_whitespace() {
                 if settings.whitespace {
                     tmp.clear();
-                    match read_while(c, pos, &mut cs, is_whitespace_char, &mut tmp) {
+                    match read_while(Some(c), pos, &mut cs, is_whitespace_char,
+                                     &mut tmp) {
                         Err(e) => {
                             co.yield_(Err(e)).await;
                             return;
@@ -444,7 +448,8 @@ pub fn parse(
             } else if c == ';' {
                 // line comments
                 tmp.clear();
-                match read_while(c, pos, &mut cs, |c| c != '\n', &mut tmp) {
+                match read_while(Some(c), pos, &mut cs, |c| c != '\n',
+                                 &mut tmp) {
                     Err(e) => {
                         co.yield_(Err(e)).await;
                         return;
@@ -474,35 +479,100 @@ pub fn parse(
                     }
                 }
             } else if c == '#' {
-                // #f #t #\character #:keyword #!special #<structure >
-                tmp.clear();
-                match read_while(c, pos, &mut cs, |c| c.is_ascii_alphabetic(), &mut tmp) {
-                    Err(e) => {
-                        co.yield_(Err(e)).await;
-                        return;
+                // #f #t #true #false #\character #:keyword #!special #<structure >
+                let c0;
+                if let Some(r) = cs.next() {
+                    match r {
+                        Err(e) => {
+                            co.yield_(Err(
+                                ParseError::IOError(
+                                    lastpos, e))).await;
+                            return;
+                        }
+                        Ok(cp) => {
+                            c0 = cp.0;
+                            lastpos = cp.1;
+                        }
                     }
-                    Ok((_lastc, mcp)) => {
-                        maybe_next_c_pos = mcp;
-                        let s = &tmp[1..];
-                        let r = (|| {
-                            if s.len() == 1 {
-                                match s.chars().next().unwrap() {
-                                    'f' => return Ok(Atom::Bool(false)),
-                                    't' => return Ok(Atom::Bool(true)),
-                                    _ => {}
+                } else {
+                    co.yield_(Err(ParseError::InvalidHashToken(pos))).await;
+                    return;
+                }
+
+                if c0 == '\\' {
+                    // #\character
+                    tmp.clear();
+                    match read_while(None, pos, &mut cs, |c| c.is_ascii_alphabetic(),
+                                     &mut tmp) {
+                        Err(e) => {
+                            co.yield_(Err(e)).await;
+                            return;
+                        }
+                        Ok((_lastc, mcp)) => {
+                            maybe_next_c_pos = mcp;
+                            let r = (|| {
+                                let len = tmp.len();
+                                if len == 0 {
+                                    return Err(ParseError::InvalidHashToken(pos))
                                 }
+                                let c0 = tmp.chars().next().unwrap();
+                                if len == 1 {
+                                    return Ok(c0)
+                                }
+                                if let Some(c) = crate::value::name2char(&tmp) {
+                                    return Ok(c)
+                                }
+                                Err(ParseError::InvalidHashToken(pos))
+                            })();
+                            match r {
+                                Err(e) => {
+                                    co.yield_(Err(e)).await;
+                                    return;
+                                }
+                                Ok(c) => co.yield_(Ok(TokenWithPos(
+                                    Token::Atom(Atom::Char(c)),
+                                    pos))).await
                             }
-                            // XXX others
-                            Err(ParseError::InvalidHashToken(pos))
-                        })();
-                        match r {
-                            Err(e) => {
-                                co.yield_(Err(e)).await;
-                                return;
+                        }
+                    }
+
+                } else {
+                    // #true #false #:keyword #!special #<structure >
+                    
+                    tmp.clear();
+                    match read_while(Some(c0), pos, &mut cs, |c| c.is_ascii_alphabetic(),
+                                     &mut tmp) {
+                        Err(e) => {
+                            co.yield_(Err(e)).await;
+                            return;
+                        }
+                        Ok((_lastc, mcp)) => {
+                            maybe_next_c_pos = mcp;
+                            let r = (|| {
+                                let len = tmp.len();
+                                if len == 0 {
+                                    return Err(ParseError::InvalidHashToken(pos))
+                                }
+                                if len == 1 {
+                                    match c0 {
+                                        'f' => return Ok(Atom::Bool(false)),
+                                        't' => return Ok(Atom::Bool(true)),
+                                        _ => {}
+                                    }
+                                }
+
+                                // XXX others
+                                Err(ParseError::InvalidHashToken(pos))
+                            })();
+                            match r {
+                                Err(e) => {
+                                    co.yield_(Err(e)).await;
+                                    return;
+                                }
+                                Ok(v) => co.yield_(Ok(TokenWithPos(
+                                    Token::Atom(v),
+                                    pos))).await
                             }
-                            Ok(v) => co.yield_(Ok(TokenWithPos(
-                                Token::Atom(v),
-                                pos))).await
                         }
                     }
                 }
@@ -527,12 +597,14 @@ pub fn parse(
             } else {
                 // Numbers, symbols, keywords, Dot
                 tmp.clear();
-                match read_while(c, pos, &mut cs, is_symbol_or_number_char, &mut tmp) {
+                match read_while(Some(c), pos, &mut cs, is_symbol_or_number_char,
+                                 &mut tmp) {
                     Err(e) => {
                         co.yield_(Err(e)).await;
                         return;
                     }
                     Ok((lastc, mcp)) => {
+                        let lastc = lastc.unwrap();
                         let r = (|| {
                             if tmp.len() == 1 && lastc == '.' {
                                 return Ok(TokenWithPos(Token::Dot, pos));
