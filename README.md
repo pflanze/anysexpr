@@ -33,6 +33,8 @@ will evolve.
 * handle `#| |#` and `#;` style comments
 * Guile style keywords
 * better errors, do not use anyhow?
+* change `path` context into a container, embedded it in the
+  errors, replacing `locator`
 * performance tuning?, perhaps do not use genawaiter?
 * better error behaviour: parser should return errors but try to be
   able to continue?
