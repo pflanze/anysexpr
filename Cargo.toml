@@ -19,3 +19,8 @@ utf-8 = "0.7"
 
 [dev-dependencies]
 clap = { version = "3.2.23", features = ["derive"] }
+
+[profile.dev]
+panic = "abort"
+# [profile.release]
+# panic = "abort"
