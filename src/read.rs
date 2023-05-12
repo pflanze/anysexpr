@@ -17,8 +17,9 @@ fn slurp(
     locator: &dyn Fn(Pos) -> String,
     ts: &mut impl Iterator<Item = Result<TokenWithPos,
                                          ParseError>>,
-    opt_parenkind: Option<(Parenkind, Pos)>)
-    -> Result<(Vec<VValue>, Option<Pos>)>
+    opt_parenkind: Option<(Parenkind, Pos)>,
+    depth_fuel: u32,
+) -> Result<(Vec<VValue>, Option<Pos>)>
 {
     let mut v = Vec::new();
     let mut current_keyword2: Option<KString> = None;
@@ -67,7 +68,10 @@ fn slurp(
             Token::Whitespace(_) => {}
             Token::Comment(_, _) => {}
             Token::Open(pk) => {
-                let (e, maybedot) = slurp(locator, ts, Some((pk, pos)))?;
+                if depth_fuel == 0 {
+                    bail!("nesting too deep {}", locator(pos))
+                }
+                let (e, maybedot) = slurp(locator, ts, Some((pk, pos)), depth_fuel - 1)?;
                 v.push(VValue::List(pk,
                                     maybedot.is_some(),
                                     e));
@@ -144,11 +148,15 @@ pub fn read(
         whitespace: false,
         comments: false,
     };
+    let depth_fuel = 500;
+    // ^ limit with default settings on Linux is around 1200
     let mut ts = parse(&mut cs, settings);
     let locator = |pos| format!("at {path:?}{pos}");
     let (v, maybedot) = slurp(
         &locator,
-        &mut ts, None)?;
+        &mut ts,
+        None,
+        depth_fuel)?;
     if let Some(pos) = maybedot {
         bail!("dot outside list context {}",
               locator(pos))
