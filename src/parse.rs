@@ -33,6 +33,10 @@ pub enum ParseError {
     NonHexDigit(Pos, char),
     #[error("invalid code point {1} {0}")]
     InvalidCodePoint(Pos, u32),
+    #[error("missing delimiter '{1}' after code sequence {0}")]
+    MissingDelimiterForCodeSequence(Pos, char),
+    #[error("too many digits in code sequence {0}")]
+    TooManyDigits(Pos),
 }
 
 pub fn maybe_open_close(c: char) -> Option<Token> {
@@ -144,17 +148,20 @@ fn parse_hexdigit(c: char) -> Option<u32> {
 }
 
 // Reads exactly numdigits digits, or up to the given delimiter, in
-// which case numdigits is the max digits allowed [XX excl delimiter?]
+// which case numdigits is the max digits allowed
 fn read_hex(
     outerdelimiter: char,
     cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
-    lastpos: Pos,
+    codestartpos: Pos,
     delimiter: Option<char>,
     numdigits: u32,
 ) -> Result<u32, ParseError> {
     let mut res: u32 = 0;
-    let mut lastpos = lastpos;
-    for _ in 0..numdigits {
+    let mut lastpos = codestartpos;
+    let mut numdigits_seen = 0;
+    // Checking numdigits_seen in two places: if delimiter given, we
+    // need to read cs.next even if we have all characters already.
+    while delimiter.is_some() || numdigits_seen < numdigits {
         if let Some(r) = cs.next() {
             match r {
                 Err(e) => return Err(ParseError::IOError(lastpos, e)),
@@ -165,19 +172,30 @@ fn read_hex(
                         }
                     }
                     if let Some(n) = parse_hexdigit(c) {
+                        // This check is superfluous if no delimiter
+                        // was given, but the alternatives appear more
+                        // complicated.
+                        if numdigits_seen == numdigits {
+                            return Err(ParseError::TooManyDigits(pos))
+                        }
                         res *= 16;
                         res += n;
+                        numdigits_seen += 1;
+                        lastpos = pos;
                     } else {
                         return Err(ParseError::NonHexDigit(pos, c))
                     }
-                    lastpos = pos;
                 }
             }
         } else {
             return Err(ParseError::UnexpectedEOF(lastpos, outerdelimiter));
         }
     }
-    Ok(res) 
+    if let Some(delim) = delimiter {
+        Err(ParseError::MissingDelimiterForCodeSequence(codestartpos, delim))
+    } else {
+        Ok(res)
+    }
 }
 
 fn read_hex_char(
@@ -242,9 +260,12 @@ fn read_delimited(startpos: Pos,
                             'x' => {
                                 // R7RS: Always terminated by a ';'
                                 out.push(
-                                    read_hex_char(delimiter, cs, pos, Some(';'), 2)?);
-                                // XX Guile: always read exactly 2 digits
+                                    read_hex_char(delimiter, cs, pos, Some(';'), 8)?);
+                                // XX Guile: always read exactly 2 digits:
+                                // out.push(
+                                //     read_hex_char(delimiter, cs, pos, None, 2)?);
                                 // XX Gambit: reads as many digits as there are (huh)
+                                // both do not include the ';' in the sequence.
                                 ""
                             }
                             _ => {
