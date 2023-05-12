@@ -37,6 +37,8 @@ pub enum ParseError {
     MissingDelimiterForCodeSequence(Pos, char),
     #[error("too many digits in code sequence {0}")]
     TooManyDigits(Pos),
+    #[error("invalid '#' token {0}")]
+    InvalidHashToken(Pos),
 }
 
 pub fn maybe_open_close(c: char) -> Option<Token> {
@@ -469,6 +471,39 @@ pub fn parse(
                             return
                         }
                         maybe_next_c_pos = mcp;
+                    }
+                }
+            } else if c == '#' {
+                // #f #t #\character #:keyword #!special #<structure >
+                tmp.clear();
+                match read_while(c, pos, &mut cs, |c| c.is_ascii_alphabetic(), &mut tmp) {
+                    Err(e) => {
+                        co.yield_(Err(e)).await;
+                        return;
+                    }
+                    Ok((_lastc, mcp)) => {
+                        maybe_next_c_pos = mcp;
+                        let s = &tmp[1..];
+                        let r = (|| {
+                            if s.len() == 1 {
+                                match s.chars().next().unwrap() {
+                                    'f' => return Ok(Atom::Bool(false)),
+                                    't' => return Ok(Atom::Bool(true)),
+                                    _ => {}
+                                }
+                            }
+                            // XXX others
+                            Err(ParseError::InvalidHashToken(pos))
+                        })();
+                        match r {
+                            Err(e) => {
+                                co.yield_(Err(e)).await;
+                                return;
+                            }
+                            Ok(v) => co.yield_(Ok(TokenWithPos(
+                                Token::Atom(v),
+                                pos))).await
+                        }
                     }
                 }
             } else if let Some(constructor) =

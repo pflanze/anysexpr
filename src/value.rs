@@ -6,6 +6,7 @@ use kstring::KString;
 
 #[derive(Debug)]
 pub enum Atom {
+    Bool(bool),
     String(KString),
     Symbol(KString),
     Keyword1(KString), // :foo
@@ -59,6 +60,7 @@ impl std::fmt::Display for Atom {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>)
            -> Result<(), std::fmt::Error> {
         match self {
+            Atom::Bool(b) => f.write_fmt(format_args!("#{}", if *b { "t" } else { "f" })),
             Atom::String(s) => fmt_stringlike(f, '"', s, true, false, false),
             Atom::Symbol(s) => fmt_stringlike(f, '|', s, false, false, false),
             Atom::Keyword1(s) => fmt_stringlike(f, '|', s, false, true, false), // :foo
