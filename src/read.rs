@@ -1,9 +1,8 @@
 use crate::pos::Pos;
 use crate::parse::{Token, TokenWithPos, ParseError, ParseSettings, parse};
-use crate::value::{Atom, VValue, Parenkind};
+use crate::value::{VValue, Parenkind};
 use crate::buffered_chars::buffered_chars;
 use std::path::Path;
-use kstring::KString;
 use anyhow::{Result, bail};
 use std::fs::File;
 
@@ -22,7 +21,6 @@ fn slurp(
 ) -> Result<(Vec<VValue>, Option<Pos>)>
 {
     let mut v = Vec::new();
-    let mut current_keyword2: Option<KString> = None;
     let mut seen_dot: Option<(Pos, usize)> = None;
     let result = |seen_dot, v: Vec<VValue>| {
         if let Some((dotpos, i)) = seen_dot {
@@ -79,13 +77,7 @@ fn slurp(
             Token::Close(pk) => {
                 if let Some((parenkind, startpos)) = opt_parenkind {
                     if pk == parenkind {
-                        if let Some(kw) = current_keyword2 {
-                            bail!("expected value after keyword `{}` {}",
-                                  Atom::Keyword2(kw),
-                                  locator(pos))
-                        } else {
-                            return result(seen_dot, v)
-                        }
+                        return result(seen_dot, v)
                     } else {
                         bail!("'{}' {} expects '{}', got '{}' {}",
                               parenkind.opening(),
@@ -101,32 +93,7 @@ fn slurp(
                 }
             }
             Token::Atom(a) => {
-                match a {
-                    Atom::Keyword1(_)  => bail!("unimplemented"),
-                    Atom::Keyword2(ref s) => {
-                        if let Some(oldkw2) = current_keyword2 {
-                            // XX should this be allowed?
-                            bail!("keyword2 `{}` followed by another \
-                                   keyword2: `{}` {}",
-                                  Atom::Keyword2(oldkw2), // feels hacky?
-                                  a,
-                                  locator(pos));
-                        } else {
-                            current_keyword2 = Some(s.clone());
-                        }
-                    }
-                    _ => {
-                        if let Some(kw) = current_keyword2 {
-                            v.push(VValue::KeyValue(
-                                kw,
-                                Box::new(VValue::Atom(a)))); // XXX not a pls?
-                            // ^ XXX should get rec thing  generally   here
-                            current_keyword2 = None;
-                        } else {
-                            v.push(VValue::Atom(a));
-                        }
-                    }
-                }
+                v.push(VValue::Atom(a));
             }
         }
     }

@@ -92,12 +92,11 @@ impl Parenkind {
     }
 }
 
-// Vec-based version of values (that also includes KeyValue)
+// Vec-based version of values
 #[derive(Debug)]
 pub enum VValue {
     Atom(Atom),
     List(Parenkind, bool, Vec<VValue>), // bool: true = improper list
-    KeyValue(KString, Box<VValue>),
 }
 
 impl std::fmt::Display for VValue {
@@ -123,11 +122,6 @@ impl std::fmt::Display for VValue {
                     }
                 }
                 f.write_char(pk.closing())
-            }
-            VValue::KeyValue(k, e) => {
-                Atom::Keyword2(k.clone()).fmt(f)?;
-                f.write_char(' ')?;
-                e.fmt(f)
             }
         }
     }
