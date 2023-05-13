@@ -5,6 +5,9 @@ This is an S-Expression parser and formatter with the following features:
 * Offering direct access to the tokenizer, `anysexpr::parse`, but also
   `anysexpr::read` to build an in-memory tree easily.
 
+* Good error reporting (precise location information and
+  messages).
+
 * Future: make the data constructors for `anysexpr::read`
   parametrizable (generic), e.g. like in the `sexpr_parser` crate.
 
