@@ -3,15 +3,15 @@ use crate::parse::{Token, TokenWithPos, ParseError, ParseSettings, parse};
 use crate::value::{VValue, Parenkind};
 use crate::buffered_chars::buffered_chars;
 use std::path::Path;
-use anyhow::{Result, bail};
 use std::fs::File;
+use anyhow::{Result, bail};
 
 
 // Read and fill a vector of values up to the expected end paren, and
 // return the vector and the position of a Dot, if any. Checking
-// whether a dot is allowed is left to the caller. Checks whether the
-// right number of items before and after the dot appeared is done by
-// slurp.
+// whether a dot is allowed is left to the caller. The check whether
+// the right number of items before and after the dot appeared is done
+// by slurp.
 fn slurp(
     locator: &dyn Fn(Pos) -> String,
     ts: &mut impl Iterator<Item = Result<TokenWithPos,
@@ -116,7 +116,7 @@ pub fn read(
         comments: false,
     };
     let depth_fuel = 500;
-    // ^ limit with default settings on Linux is around 1200
+    // ^ the limit with default settings on Linux is around 1200
     let mut ts = parse(&mut cs, settings);
     let locator = |pos| format!("at {path:?}{pos}");
     let (v, maybedot) = slurp(
