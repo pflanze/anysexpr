@@ -2,11 +2,19 @@
 name = "anysexpr"
 version = "0.1.0"
 authors = ["Christian Jaeger <ch@christianjaeger.ch>"]
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/pflanze/anysexpr"
 description = "(Universal) S-Expression parser and formatter"
 edition = "2018"
-# categories = ["data-formats"] ?
+categories = ["parser-implementations"]
+keywords = ["parser", "s-expressions", "sexpr", "lisp", "scheme", "clojure"]
+# Potential other keywords: "protocol", "serde", "serialization",
+# "text", "language", "tree", "stream", "format", "interpreter",
+# "incremental", "data-structure", "decoder", "display", "serial",
+# "read", "deserialisation", "message", "list", "markup",
+# "formatting", "programming-language", "reader", "expression",
+# "formatter", "repl", "recursive", "generics", "meta" ...  (looked
+# through the first 1750 of 25293 total results)
 readme = "README.md"
 
 [dependencies]
