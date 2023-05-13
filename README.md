@@ -27,20 +27,19 @@ will evolve.
 
 * string escape features on printing
 * inexact and complex numbers
-* chars
-* `#f`, `#t`
+* chars: `#\x...`, `#\u...`, `#\U...`
 * implement quote/quasiquote/unquote parsing
 * handle `#| |#` and `#;` style comments
-* Guile style keywords
+* Guile style keywords `#:foo`
 * better errors, do not use anyhow?
 * change `path` context into a container, embedded it in the
   errors, replacing `locator`
 * performance tuning?, perhaps do not use genawaiter?
 * better error behaviour: parser should return errors but try to be
   able to continue?
-* tests
+* tests (large test corpora, round trip tests, fuzzing)
 * handle Guile, Clojure and other syntax versions
-* parametrization (generics) for tree generation
+* parametrization (generics) for tree generation / mapping (also/vs. Serde?)
 * lazy features as mentioned above
 * some level of support for pretty-printing
 
