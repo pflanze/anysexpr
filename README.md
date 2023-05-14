@@ -11,20 +11,22 @@ This is an S-Expression parser and formatter with the following features:
 * Future: make the data constructors for `anysexpr::read`
   parametrizable (generic), e.g. like in the `sexpr_parser` crate.
 
-* Streaming: allow to read from and print to file handles lazily. This
-  currently works by using `anysexpr::parse` directly, or creating
-  tokens to print via a custom loop. Future: more possibilities,
-  e.g. turn a tree into a token stream, or parameterize with a tree
-  that's generated on demand while printing.
+* Streaming: allow to read from and print to file handles lazily, for
+  use e.g. in communications. This currently works by using
+  `anysexpr::parse` directly for input, or creating tokens to print
+  via a custom loop for output. Future: more possibilities, e.g. turn
+  a tree into a token stream, or parameterize with a tree that's
+  generated on demand while printing.
 
-* Future: support various s-expression versions (R5RS, Guile, Clojure,
+* Future: support various s-expression variants (R*RS, Guile, Clojure,
   Common Lisp, ..) via runtime (and compile-time?) settings.
 
 This is an early alpha version. Even some basics are unfinished
 (inexact and complex numbers, quoting sugar, some comment styles, ..).
-
-The author is quite new in Rust but quite invested in lisps, this
-will evolve.
+The author is quite new in Rust. He is aware of the huge list of API
+guideline entries not currently being followed, and welcomes help in
+that area as well as others. The author is also quite invested in
+lisps and expects to support this library for a long time.
 
 ## Todo
 
