@@ -51,6 +51,11 @@ lisps and expects to support this library for a long time.
 * lazy features as mentioned above
 * some level of support for pretty-printing
 
+Orthogonally:
+
+* examine the `lexpr` crate in more detail (missed when researching
+  existing crates before starting this project)
+
 ## Contact
 
 Christian Jaeger <ch@christianjaeger.ch>
