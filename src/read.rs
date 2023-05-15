@@ -11,6 +11,7 @@ use crate::pos::Pos;
 use crate::parse::{Token, TokenWithPos, ParseError, ParseSettings, parse};
 use crate::value::{VValue, Parenkind};
 use crate::buffered_chars::buffered_chars;
+use std::io::Read;
 use std::path::Path;
 use std::fs::File;
 use anyhow::{Result, bail};
@@ -115,10 +116,12 @@ fn slurp(
     }
 }
 
-pub fn read(
+pub fn read<R>(
     path: &Path,
-    fh: File,
-) -> Result<Vec<VValue>> {
+    fh: R,
+) -> Result<Vec<VValue>>
+    where R: Read
+{
     let mut cs = buffered_chars(fh);
     let settings = ParseSettings {
         whitespace: false,

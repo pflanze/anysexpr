@@ -8,14 +8,16 @@
 // except according to those terms.
 
 use crate::pos::Pos;
-use std::{fs, io};
+use std::io::{self, Read};
 use anyhow::{Result, anyhow};
 use utf8::BufReadDecoder;
 use genawaiter::rc::Gen;
 
 
-pub fn buffered_chars(fh: fs::File)
-                      -> impl Iterator<Item=Result<(char, Pos)>>
+pub fn buffered_chars<R>(
+    fh: R
+) -> impl Iterator<Item=Result<(char, Pos)>>
+    where R: Read
 {
     Gen::new(|co| async move {
         let mut inp = BufReadDecoder::new(io::BufReader::new(fh));
