@@ -1,0 +1,21 @@
+#!/bin/bash
+set -euo pipefail
+# enable job control consistently, not just when there is a tty:
+set -m
+IFS=
+
+if [ $# -ne 1 ]; then
+    echo "usage: $0 in > out" >&2
+    exit 1
+fi
+
+export file="$1"
+
+rlwrap \
+gsi -:tE,dar,t8,f8,-8 -e '
+    (for-each pretty-print
+       (call-with-input-file (list path: (getenv "file")
+                                   char-encoding: '\''UTF-8)
+            read-all))
+    (newline)'
+
