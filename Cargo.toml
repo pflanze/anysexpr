@@ -18,15 +18,15 @@ keywords = ["parser", "s-expressions", "sexpr", "lisp", "scheme", "clojure"]
 readme = "README.md"
 
 [dependencies]
-anyhow = "1.0"
+anyhow = "^1.0.4"
 thiserror = "1.0"
 kstring = "1.0"
 genawaiter = { version = "0.99", default-features = false }
 num = "0.4"
-utf-8 = "0.7"
+utf-8 = "^0.7.5"
 
 [dev-dependencies]
-clap = { version = "3.2", features = ["derive"] }
+clap = { version = "^3.2.1", features = ["derive"] }
 
 [profile.dev]
 panic = "abort"
