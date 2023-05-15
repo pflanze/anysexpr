@@ -7,14 +7,14 @@ repository = "https://github.com/pflanze/anysexpr"
 description = "(Universal) S-Expression parser and formatter"
 edition = "2021"
 categories = ["parser-implementations"]
-keywords = ["parser", "s-expressions", "sexpr", "lisp", "scheme", "clojure"]
-# Potential other keywords: "protocol", "serde", "serialization",
-# "text", "language", "tree", "stream", "format", "interpreter",
-# "incremental", "data-structure", "decoder", "display", "serial",
-# "read", "deserialisation", "message", "list", "markup",
-# "formatting", "programming-language", "reader", "expression",
-# "formatter", "repl", "recursive", "generics", "meta" ...  (looked
-# through the first 1750 of 25293 total results)
+keywords = ["s-expressions", "sexpr", "lisp", "scheme", "clojure"]
+# Potential other keywords: "parser", "protocol", "serde",
+# "serialization", "text", "language", "tree", "stream", "format",
+# "interpreter", "incremental", "data-structure", "decoder",
+# "display", "serial", "read", "deserialisation", "message", "list",
+# "markup", "formatting", "programming-language", "reader",
+# "expression", "formatter", "repl", "recursive", "generics", "meta"
+# ...  (looked through the first 1750 of 25293 total results)
 readme = "README.md"
 
 [dependencies]
