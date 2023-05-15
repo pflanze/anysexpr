@@ -23,7 +23,7 @@ This is an S-Expression parser and formatter with the following features:
 
 This is an early alpha version. Even some basics are unfinished
 (inexact and complex numbers, quoting sugar, some comment styles, ..).
-The author is quite new in Rust. He is aware of the huge list of API
+The author is quite new to Rust. He is aware of the huge list of API
 guideline entries not currently being followed, and welcomes help in
 that area as well as others. The author is also quite invested in
 lisps and expects to support this library for a long time.
@@ -37,7 +37,7 @@ lisps and expects to support this library for a long time.
 * handle `#| |#` and `#;` style comments
 * Guile style keywords `#:foo`
 * better errors, do not use anyhow?
-* change `path` context into a container, embedded it in the
+* change `path` context into a container, embed it in the
   errors, replacing `locator`
 * performance tuning?, perhaps do not use genawaiter?
 * better error behaviour: parser should return errors but try to be
