@@ -1,6 +1,6 @@
 # Any-sexpr
 
-This is an S-Expression parser and formatter with the following features:
+This is an S-Expression parser and formatter with the following goals:
 
 * Offering direct access to the tokenizer, `anysexpr::parse`, but also
   `anysexpr::read` to build an in-memory tree easily.
@@ -8,7 +8,7 @@ This is an S-Expression parser and formatter with the following features:
 * Good error reporting (precise location information and
   messages).
 
-* Future: make the data constructors for `anysexpr::read`
+* (Future) Make the data constructors for `anysexpr::read`
   parametrizable (generic), e.g. like in the `sexpr_parser` crate.
 
 * Streaming: allow to read from and print to file handles lazily, for
@@ -18,8 +18,11 @@ This is an S-Expression parser and formatter with the following features:
   a tree into a token stream, or parameterize with a tree that's
   generated on demand while printing.
 
-* Future: support various s-expression variants (R*RS, Guile, Clojure,
+* (Future) Support various s-expression variants (R*RS, Guile, Clojure,
   Common Lisp, ..) via runtime (and compile-time?) settings.
+
+* (Perhaps) be usable on microcontrollers (compilable small enough,
+  no-std?).
 
 This is an early alpha version. Even some basics are unfinished
 (inexact and complex numbers, quoting sugar, some comment styles, ..).
