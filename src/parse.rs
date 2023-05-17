@@ -29,25 +29,41 @@ fn take_while_and_rest<'s>(
 
 #[derive(Error, Debug)]
 pub enum ParseError {
-    #[error("IO error after {0}: {1}")]
+    #[error("IO error ({0}) after")]
     // XX: should not use anyhow::Error in buffered_chars.rs
-    IOError(Pos, anyhow::Error),
-    #[error("unexpected EOF in string/symbol delimited by '{1}' starting {0}")]
-    UnexpectedEOFInString(Pos, char),
-    #[error("too many semicolons to start a comment {0}")]
-    TooManySemicolons(Pos),
-    #[error("invalid escaped character '{1}' {0}")]
-    InvalidEscapedChar(Pos, char),
-    #[error("not a hex digit: '{1}' {0}")]
-    NonHexDigit(Pos, char),
-    #[error("invalid code point {1} {0}")]
-    InvalidCodePoint(Pos, u32),
-    #[error("missing delimiter '{1}' after code sequence {0}")]
-    MissingDelimiterForCodeSequence(Pos, char),
-    #[error("too many digits in code sequence {0}")]
-    TooManyDigits(Pos),
-    #[error("invalid '#' token {0}")]
-    InvalidHashToken(Pos),
+    IOError(anyhow::Error),
+    #[error("unexpected EOF in string/symbol delimited by '{0}' starting")]
+    UnexpectedEOFInString(char),
+    #[error("too many semicolons to start a comment")]
+    TooManySemicolons,
+    #[error("invalid escaped character '{0}'")]
+    InvalidEscapedChar(char),
+    #[error("not a hex digit: '{0}'")]
+    NonHexDigit(char),
+    #[error("invalid code point {0}")]
+    InvalidCodePoint(u32),
+    #[error("missing delimiter '{0}' after code sequence")]
+    MissingDelimiterForCodeSequence(char),
+    #[error("too many digits in code sequence")]
+    TooManyDigits,
+    #[error("invalid '#' token")]
+    InvalidHashToken,
+}
+
+#[derive(Error, Debug)]
+#[error("{err} {pos}")]
+pub struct ParseErrorWithPos {
+    pub err: ParseError,
+    pub pos: Pos
+}
+
+impl ParseError {
+    fn at(self, p: Pos) -> ParseErrorWithPos {
+        ParseErrorWithPos {
+            err: self,
+            pos: p
+        }
+    }
 }
 
 pub fn maybe_open_close(c: char) -> Option<Token> {
@@ -166,7 +182,7 @@ fn read_hex(
     codestartpos: Pos,
     delimiter: Option<char>,
     numdigits: u32,
-) -> Result<u32, ParseError> {
+) -> Result<u32, ParseErrorWithPos> {
     let mut res: u32 = 0;
     let mut lastpos = codestartpos;
     let mut numdigits_seen = 0;
@@ -175,7 +191,7 @@ fn read_hex(
     while delimiter.is_some() || numdigits_seen < numdigits {
         if let Some(r) = cs.next() {
             match r {
-                Err(e) => return Err(ParseError::IOError(lastpos, e)),
+                Err(e) => return Err(ParseError::IOError(e).at(lastpos)),
                 Ok((c, pos)) => {
                     if let Some(delim) = delimiter {
                         if c == delim {
@@ -187,23 +203,23 @@ fn read_hex(
                         // was given, but the alternatives appear more
                         // complicated.
                         if numdigits_seen == numdigits {
-                            return Err(ParseError::TooManyDigits(pos))
+                            return Err(ParseError::TooManyDigits.at(pos))
                         }
                         res *= 16;
                         res += n;
                         numdigits_seen += 1;
                         lastpos = pos;
                     } else {
-                        return Err(ParseError::NonHexDigit(pos, c))
+                        return Err(ParseError::NonHexDigit(c).at(pos))
                     }
                 }
             }
         } else {
-            return Err(ParseError::UnexpectedEOFInString(lastpos, outerdelimiter));
+            return Err(ParseError::UnexpectedEOFInString(outerdelimiter).at(lastpos));
         }
     }
     if let Some(delim) = delimiter {
-        Err(ParseError::MissingDelimiterForCodeSequence(codestartpos, delim))
+        Err(ParseError::MissingDelimiterForCodeSequence(delim).at(codestartpos))
     } else {
         Ok(res)
     }
@@ -215,12 +231,12 @@ fn read_hex_char(
     lastpos: Pos,
     delimiter: Option<char>,
     numdigits: u32,
-) -> Result<char, ParseError> {
+) -> Result<char, ParseErrorWithPos> {
     let code = read_hex(outerdelimiter, cs, lastpos, delimiter, numdigits)?;
     if let Some(c) = char::from_u32(code) {
         Ok(c)
     } else {
-        Err(ParseError::InvalidCodePoint(lastpos, code))
+        Err(ParseError::InvalidCodePoint(code).at(lastpos))
     }
 }
 
@@ -228,14 +244,14 @@ fn read_delimited(startpos: Pos,
                   cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
                   delimiter: char,
                   out: &mut String)
-                  -> Result<(), ParseError> {
+                  -> Result<(), ParseErrorWithPos> {
     out.clear();
     let mut escaped = false;
     let mut lastpos = startpos;
     loop {
         if let Some(r) = cs.next() {
             match r {
-                Err(e) => return Err(ParseError::IOError(lastpos, e)),
+                Err(e) => return Err(ParseError::IOError(e).at(lastpos)),
                 Ok((c, pos)) => {
                     lastpos = pos;
                     if escaped {
@@ -303,7 +319,7 @@ fn read_delimited(startpos: Pos,
                                     // number exceepds 255?
                                     todo!()
                                 } else {
-                                    return Err(ParseError::InvalidEscapedChar(pos, c))
+                                    return Err(ParseError::InvalidEscapedChar(c).at(pos))
                                 }
                             }
                         };
@@ -321,7 +337,7 @@ fn read_delimited(startpos: Pos,
                 }
             }
         } else {
-            return Err(ParseError::UnexpectedEOFInString(startpos, delimiter));
+            return Err(ParseError::UnexpectedEOFInString(delimiter).at(startpos));
         }
     }
 }
@@ -333,7 +349,8 @@ fn read_while(c: Option<char>,
               cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
               accepted: fn(char) -> bool,
               out: &mut String)
-              -> Result<(Option<char>, Option<(char, Pos)>), ParseError> {
+              -> Result<(Option<char>, Option<(char, Pos)>),
+                        ParseErrorWithPos> {
     out.clear();
     if let Some(c) = c {
         out.push(c);
@@ -343,7 +360,7 @@ fn read_while(c: Option<char>,
     loop {
         if let Some(r) = cs.next() {
             match r {
-                Err(e) => return Err(ParseError::IOError(lastpos, e)),
+                Err(e) => return Err(ParseError::IOError(e).at(lastpos)),
                 Ok((c, pos)) => {
                     lastpos = pos;
                     if accepted(c) {
@@ -397,7 +414,7 @@ pub fn parse(
     cs: impl Iterator<Item = anyhow::Result<(char, Pos)>>,
     settings: ParseSettings,
 )
-    -> impl Iterator<Item = Result<TokenWithPos, ParseError>>
+    -> impl Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>
 {
     Gen::new(|co| async move {
         let mut cs = cs;
@@ -415,8 +432,7 @@ pub fn parse(
                     match r {
                         Err(e) => {
                             co.yield_(Err(
-                                ParseError::IOError(
-                                    lastpos, e))).await;
+                                ParseError::IOError(e).at(lastpos))).await;
                             return;
                         }
                         Ok(cp) => {
@@ -477,7 +493,8 @@ pub fn parse(
                                                 KString::from_ref(rest)),
                                             pos))).await;
                             } else {
-                                co.yield_(Err(ParseError::TooManySemicolons(pos))).await
+                                co.yield_(Err(ParseError::TooManySemicolons.at(pos)))
+                                    .await
                             }
                         }
                         if mcp.is_none() {
@@ -494,8 +511,7 @@ pub fn parse(
                     match r {
                         Err(e) => {
                             co.yield_(Err(
-                                ParseError::IOError(
-                                    lastpos, e))).await;
+                                ParseError::IOError(e).at(lastpos))).await;
                             return;
                         }
                         Ok(cp) => {
@@ -504,7 +520,7 @@ pub fn parse(
                         }
                     }
                 } else {
-                    co.yield_(Err(ParseError::InvalidHashToken(pos))).await;
+                    co.yield_(Err(ParseError::InvalidHashToken.at(pos))).await;
                     return;
                 }
 
@@ -522,7 +538,7 @@ pub fn parse(
                             let r = (|| {
                                 let len = tmp.len();
                                 if len == 0 {
-                                    return Err(ParseError::InvalidHashToken(pos))
+                                    return Err(ParseError::InvalidHashToken.at(pos))
                                 }
                                 let c0 = tmp.chars().next().unwrap();
                                 if len == 1 {
@@ -531,7 +547,7 @@ pub fn parse(
                                 if let Some(c) = crate::value::name2char(&tmp) {
                                     return Ok(c)
                                 }
-                                Err(ParseError::InvalidHashToken(pos))
+                                Err(ParseError::InvalidHashToken.at(pos))
                             })();
                             match r {
                                 Err(e) => {
@@ -560,7 +576,7 @@ pub fn parse(
                             let r = (|| {
                                 let len = tmp.len();
                                 if len == 0 {
-                                    return Err(ParseError::InvalidHashToken(pos))
+                                    return Err(ParseError::InvalidHashToken.at(pos))
                                 }
                                 if len == 1 {
                                     match c0 {
@@ -571,7 +587,7 @@ pub fn parse(
                                 }
 
                                 // XXX others
-                                Err(ParseError::InvalidHashToken(pos))
+                                Err(ParseError::InvalidHashToken.at(pos))
                             })();
                             match r {
                                 Err(e) => {

@@ -8,13 +8,134 @@
 // except according to those terms.
 
 use crate::pos::Pos;
-use crate::parse::{Token, TokenWithPos, ParseError, ParseSettings, parse};
+use crate::context::{self, Context};
+use crate::parse::{Token, TokenWithPos, ParseSettings, parse,
+                   ParseError, ParseErrorWithPos};
 use crate::value::{VValue, Parenkind};
 use crate::buffered_chars::buffered_chars;
+use std::fmt::{Formatter, Display, Debug};
 use std::io::Read;
 use std::path::Path;
 use std::fs::File;
-use anyhow::{Result, bail};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum ReadError {
+    #[error("{0}")]
+    PE(ParseError),
+    #[error("{0}")]
+    IO(std::io::Error),
+    #[error("missing item after dot")]
+    MissingItemAfterDot,
+    #[error("expecting one item after dot, got {0}")]
+    ExpectingOneItemAfterDot(usize),
+    #[error("dot already appeared {0}, again")]
+    DotAlreadyAppeared(Pos),
+    #[error("dot without preceding item")]
+    DotWithoutPrecedingItem,
+    #[error("nesting too deep")]
+    NestingTooDeep,
+    #[error("'{}' {1} expects '{}', got '{}'",
+            .0.opening(), .0.closing(), .2.closing())]
+    ParenMismatch(Parenkind, Pos, Parenkind),
+    #[error("got closing '{}' though none expected", .0.closing())]
+    UnexpectedClosingParen(Parenkind),
+    #[error("premature EOF while expecting closing paren '{}' for '{}'",
+            .0.closing(), .0.opening())]
+    PrematureEofExpectingClosingParen(Parenkind),
+    #[error("dot outside list context")]
+    DotOutsideListContext
+ }
+
+#[derive(Error, Debug)]
+#[error("{err} {pos}")]
+pub struct ReadErrorWithPos {
+    err: ReadError,
+    pos: Pos
+}
+
+impl ReadError {
+    fn at(self, p: Pos) -> ReadErrorWithPos {
+        ReadErrorWithPos {
+            err: self,
+            pos: p
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub struct ReadErrorWithPosContext {
+    err_with_pos: ReadErrorWithPos,
+    container: Box<dyn Context>
+}
+
+impl Display for ReadErrorWithPosContext {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        f.write_fmt(format_args!("{} ",
+                                 self.err_with_pos.err))?;
+        self.container.format_with_pos(self.err_with_pos.pos, f)?;
+        Ok(())
+    }
+}
+
+impl From<ParseErrorWithPos> for ReadErrorWithPos {
+    fn from(ep: ParseErrorWithPos) -> ReadErrorWithPos {
+        let ParseErrorWithPos { err, pos } = ep;
+        ReadErrorWithPos {
+            err: ReadError::PE(err),
+            pos
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum ReadErrorWithContext {
+    #[error("{}: {0}", .1.to_string_without_pos())]
+    IO(std::io::Error, Box<dyn Context>)
+}
+
+#[derive(Error, Debug)]
+pub enum ReadErrorWithLocation {
+    #[error("{0}")]
+    PC(Box<ReadErrorWithPosContext>),
+    #[error("{0}")]
+    IO(Box<ReadErrorWithContext>)
+}
+
+
+// XX change these to methods
+
+// Transform an IO error without Pos context
+fn io_add_file<T>(
+    r: Result<T, std::io::Error>,
+    path: &Path
+) -> Result<T, ReadErrorWithLocation>
+{
+    match r {
+        Err(e) => Err(ReadErrorWithLocation::IO(Box::new(
+            ReadErrorWithContext::IO(
+                e,
+                Box::new(context::FileContext { path: path.to_path_buf() }))))),
+        Ok(v) => Ok(v)
+    }
+}
+
+// Transform ReadErrorWithPos adding file
+fn rewp_add_file<T>(
+    r: Result<T, ReadErrorWithPos>,
+    path: &Path
+) -> Result<T, ReadErrorWithLocation>
+{
+    match r {
+        Err(e) => Err(ReadErrorWithLocation::PC(
+            Box::new(
+                ReadErrorWithPosContext {
+                    err_with_pos: e,
+                    container: Box::new(context::FileContext { path: path.to_path_buf() })
+                }))),
+        Ok(v) => Ok(v)
+    }
+}
 
 
 // Read and fill a vector of values up to the expected end paren, and
@@ -23,12 +144,11 @@ use anyhow::{Result, bail};
 // the right number of items before and after the dot appeared is done
 // by slurp.
 fn slurp(
-    locator: &dyn Fn(Pos) -> String,
     ts: &mut impl Iterator<Item = Result<TokenWithPos,
-                                         ParseError>>,
+                                         ParseErrorWithPos>>,
     opt_parenkind: Option<(Parenkind, Pos)>,
     depth_fuel: u32,
-) -> Result<(Vec<VValue>, Option<Pos>)>
+) -> Result<(Vec<VValue>, Option<Pos>), ReadErrorWithPos>
 {
     let mut v = Vec::new();
     let mut seen_dot: Option<(Pos, usize)> = None;
@@ -37,11 +157,9 @@ fn slurp(
             let n_items_after_dot = v.len() - i;
             match n_items_after_dot {
                 1 => return Ok((v, Some(dotpos))),
-                0 => bail!("missing item after dot {}",
-                           locator(dotpos)),
-                _ => bail!("expecting one item after dot, got {} {}",
-                           n_items_after_dot,
-                           locator(dotpos)),
+                0 => Err(ReadError::MissingItemAfterDot.at(dotpos)),
+                _ => Err(ReadError::ExpectingOneItemAfterDot(n_items_after_dot)
+                         .at(dotpos)),
             }
         } else {
             return Ok((v, None));
@@ -52,14 +170,11 @@ fn slurp(
         match t {
             Token::Dot => {
                 if let Some((oldpos, _)) = seen_dot {
-                    bail!("dot already appeared {}, again {}",
-                          locator(oldpos),
-                          locator(pos))
+                    return Err(ReadError::DotAlreadyAppeared(oldpos).at(pos))
                 } else {
                     let i = v.len();
                     if i == 0 {
-                        bail!("dot without preceding item {}",
-                              locator(pos))
+                        return Err(ReadError::DotWithoutPrecedingItem.at(pos))
                     }
                     seen_dot = Some((pos, i));
                 }
@@ -77,9 +192,9 @@ fn slurp(
             Token::Comment(_, _) => {}
             Token::Open(pk) => {
                 if depth_fuel == 0 {
-                    bail!("nesting too deep {}", locator(pos))
+                    return Err(ReadError::NestingTooDeep.at(pos))
                 }
-                let (e, maybedot) = slurp(locator, ts, Some((pk, pos)), depth_fuel - 1)?;
+                let (e, maybedot) = slurp(ts, Some((pk, pos)), depth_fuel - 1)?;
                 v.push(VValue::List(pk,
                                     maybedot.is_some(),
                                     e));
@@ -89,17 +204,12 @@ fn slurp(
                     if pk == parenkind {
                         return result(seen_dot, v)
                     } else {
-                        bail!("'{}' {} expects '{}', got '{}' {}",
-                              parenkind.opening(),
-                              locator(startpos),
-                              parenkind.closing(),
-                              pk.closing(),
-                              locator(pos))
+                        return Err(ReadError::ParenMismatch(parenkind, startpos, pk)
+                                   .at(pos))
                     }
                 } else {
-                    bail!("got closing '{}' though none expected {}",
-                          pk.closing(),
-                          locator(pos))
+                    return Err(ReadError::UnexpectedClosingParen(pk)
+                               .at(pos))
                 }
             }
             Token::Atom(a) => {
@@ -108,18 +218,16 @@ fn slurp(
         }
     }
     if let Some((parenkind, startpos)) = opt_parenkind {
-        bail!("premature EOF while expecting closing paren '{}' (opening {})",
-              parenkind.closing(),
-              locator(startpos))
+        Err(ReadError::PrematureEofExpectingClosingParen(parenkind)
+            .at(startpos))
     } else {
-        return result(seen_dot, v)
+        result(seen_dot, v)
     }
 }
 
 pub fn read<R>(
-    path: &Path,
     fh: R,
-) -> Result<Vec<VValue>>
+) -> Result<Vec<VValue>, ReadErrorWithPos>
     where R: Read
 {
     let mut cs = buffered_chars(fh);
@@ -130,21 +238,19 @@ pub fn read<R>(
     let depth_fuel = 500;
     // ^ the limit with default settings on Linux is around 1200
     let mut ts = parse(&mut cs, settings);
-    let locator = |pos| format!("at {path:?}{pos}");
     let (v, maybedot) = slurp(
-        &locator,
         &mut ts,
         None,
         depth_fuel)?;
     if let Some(pos) = maybedot {
-        bail!("dot outside list context {}",
-              locator(pos))
+        Err(ReadError::DotOutsideListContext.at(pos))
     } else {
         Ok(v)
     }
 }
 
-pub fn read_file(path: &Path) -> Result<Vec<VValue>> {
-    let fh = File::open(path)?;
-    read(path, fh)
+pub fn read_file(path: &Path) -> Result<Vec<VValue>, ReadErrorWithLocation> {
+    let fh = io_add_file(File::open(path), path)?;
+    let v = rewp_add_file(read(fh), path)?;
+    Ok(v)
 }
