@@ -225,7 +225,7 @@ fn slurp(
     }
 }
 
-pub fn read(
+pub fn read_all(
     fh: impl Read,
 ) -> Result<Vec<VValue>, ReadErrorWithPos>
 {
@@ -250,6 +250,6 @@ pub fn read(
 
 pub fn read_file(path: &Path) -> Result<Vec<VValue>, ReadErrorWithLocation> {
     let fh = io_add_file(File::open(path), path)?;
-    let v = rewp_add_file(read(fh), path)?;
+    let v = rewp_add_file(read_all(fh), path)?;
     Ok(v)
 }
