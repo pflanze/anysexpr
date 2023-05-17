@@ -9,10 +9,11 @@
 
 use anysexpr::pos::Pos;
 use anysexpr::value::{VValue, Parenkind};
-use anysexpr::read::read_file;
+use anysexpr::read::{read_file, write_all};
 use anysexpr::parse::{Token, ParseSettings, parse, TokenWithPos};
 use anysexpr::buffered_chars::buffered_chars;
 use clap::Parser as ClapParser;
+use std::io::stdout;
 use std::path::PathBuf;
 use anyhow::{Result, bail};
 
@@ -50,21 +51,19 @@ fn main() -> Result<()> {
 
     if args.ast {
 
-        // Slurp in the whole file contents as a tree
+        // Slurp in the whole file contents as a list of trees, then
+        // optionally print those.
+        
         let v: Vec<VValue> = read_file(&args.input_path)?;
         if args.print {
-            let len = v.len();
-            for (i, item) in v.iter().enumerate() {
-                println!("{}{}",
-                         item,
-                         if i + 1 < len { "\n" } else { "" });
-            }
+            write_all(stdout(), &v)?;
         }
 
     } else {
 
         // Read through the token stream of the file contents and just
-        // do some bookkeeping and optionally print the tokens
+        // do some bookkeeping and optionally print the tokens.
+
         let fh = std::fs::File::open(&args.input_path)?;
         let mut cs = buffered_chars(fh);
         let ts = parse(&mut cs,
