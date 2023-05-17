@@ -14,7 +14,7 @@ use crate::parse::{Token, TokenWithPos, ParseSettings, parse,
 use crate::value::{VValue, Parenkind};
 use crate::buffered_chars::buffered_chars;
 use std::fmt::{Formatter, Display, Debug};
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::Path;
 use std::fs::File;
 use thiserror::Error;
@@ -253,3 +253,22 @@ pub fn read_file(path: &Path) -> Result<Vec<VValue>, ReadErrorWithLocation> {
     let v = rewp_add_file(read_all(fh), path)?;
     Ok(v)
 }
+
+pub fn write_all<'t>(
+    out: impl Write,
+    vals: impl IntoIterator<Item = &'t VValue>
+) -> Result<(), std::io::Error> {
+    let mut out = out; // for `File`
+    let mut seen_item = false;
+    for v in vals.into_iter() {
+        write!(out, "{}{}\n", if seen_item {"\n"} else {""}, v)?;
+        seen_item = true;
+    }
+    Ok(())
+}
+
+pub fn write_file<'t>(path: &Path, vals: impl IntoIterator<Item = &'t VValue>)
+                      -> Result<(), std::io::Error> {
+    write_all(File::open(path)?, vals)
+}
+
