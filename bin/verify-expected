@@ -1,0 +1,26 @@
+#!/bin/bash
+set -euo pipefail
+# enable job control consistently, not just when there is a tty:
+set -m
+IFS=
+
+usage() {
+    echo "$0 tests/t-input.scm ..."
+    echo "  Verifies that the corresponding file tests/t-expected.scm"
+    echo "  translates to the same output when fed through gambit-roundtrip"
+    exit 1
+}
+
+if [[ $# = 1 && "$1" = -h ]]; then
+    usage
+fi
+
+inpexptmp="$(mktemp)"
+expexptmp="$(mktemp)"
+
+for inp in "$@"; do
+    exp="$(printf '%s' "$inp" | sed 's/-input.scm$/-expected.scm/')"
+    bin/gambit-roundtrip "$inp" > "$inpexptmp"
+    bin/gambit-roundtrip "$exp" > "$expexptmp"
+    diff -u "$expexptmp" "$inpexptmp"
+done
