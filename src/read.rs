@@ -225,10 +225,9 @@ fn slurp(
     }
 }
 
-pub fn read<R>(
-    fh: R,
+pub fn read(
+    fh: impl Read,
 ) -> Result<Vec<VValue>, ReadErrorWithPos>
-    where R: Read
 {
     let mut cs = buffered_chars(fh);
     let settings = ParseSettings {
