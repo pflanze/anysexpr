@@ -39,9 +39,6 @@ lisps and expects to support this library for a long time.
 * implement quote/quasiquote/unquote parsing
 * handle `#| |#` and `#;` style comments
 * Guile style keywords `#:foo`
-* better errors, do not use anyhow?
-* change `path` context into a container, embed it in the
-  errors, replacing `locator`
 * performance tuning?, perhaps do not use genawaiter?
 * better error behaviour: parser should return errors but try to be
   able to continue?
