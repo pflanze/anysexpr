@@ -25,25 +25,25 @@ pub enum ReadError {
     PE(ParseError),
     #[error("{0}")]
     IO(std::io::Error),
-    #[error("missing item after dot")]
+    #[error("missing item after '.'")]
     MissingItemAfterDot,
-    #[error("expecting one item after dot, got {0}")]
+    #[error("expecting one item after '.', got {0}")]
     ExpectingOneItemAfterDot(usize),
-    #[error("dot already appeared {0}, again")]
+    #[error("'.' already appeared {0}, again")]
     DotAlreadyAppeared(Pos),
-    #[error("dot without preceding item")]
+    #[error("'.' without preceding item")]
     DotWithoutPrecedingItem,
     #[error("nesting too deep")]
     NestingTooDeep,
     #[error("'{}' {1} expects '{}', got '{}'",
             .0.opening(), .0.closing(), .2.closing())]
     ParenMismatch(Parenkind, Pos, Parenkind),
-    #[error("got closing '{}' though none expected", .0.closing())]
+    #[error("unexpected closing character '{}'", .0.closing())]
     UnexpectedClosingParen(Parenkind),
-    #[error("premature EOF while expecting closing paren '{}' for '{}'",
+    #[error("premature EOF while expecting closing character '{}' for '{}'",
             .0.closing(), .0.opening())]
     PrematureEofExpectingClosingParen(Parenkind),
-    #[error("dot outside list context")]
+    #[error("'.' outside of list context")]
     DotOutsideListContext
  }
 
