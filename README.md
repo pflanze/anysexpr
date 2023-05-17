@@ -31,6 +31,10 @@ guideline entries not currently being followed, and welcomes help in
 that area as well as others. The author is also quite invested in
 lisps and expects to support this library for a long time.
 
+## Usage
+
+See [examples/main.rs](examples/main.rs).
+
 ## Todo
 
 * string escape features on printing
