@@ -449,7 +449,6 @@ pub fn parse(
                 co.yield_(Ok(TokenWithPos(t, pos))).await;
             } else if c.is_whitespace() {
                 if settings.whitespace {
-                    tmp.clear();
                     match read_while(Some(c), pos, &mut cs, is_whitespace_char,
                                      &mut tmp) {
                         Err(e) => {
@@ -472,7 +471,6 @@ pub fn parse(
                 }
             } else if c == ';' {
                 // line comments
-                tmp.clear();
                 match read_while(Some(c), pos, &mut cs, |c| c != '\n',
                                  &mut tmp) {
                     Err(e) => {
@@ -526,7 +524,6 @@ pub fn parse(
 
                 if c0 == '\\' {
                     // #\character
-                    tmp.clear();
                     match read_while(None, pos, &mut cs, |c| c.is_ascii_alphabetic(),
                                      &mut tmp) {
                         Err(e) => {
@@ -564,7 +561,6 @@ pub fn parse(
                 } else {
                     // #true #false #:keyword #!special #<structure >
                     
-                    tmp.clear();
                     match read_while(Some(c0), pos, &mut cs, |c| c.is_ascii_alphabetic(),
                                      &mut tmp) {
                         Err(e) => {
@@ -621,7 +617,6 @@ pub fn parse(
                 co.yield_(Ok(TokenWithPos(t, pos))).await;
             } else {
                 // Numbers, symbols, keywords, Dot
-                tmp.clear();
                 match read_while(Some(c), pos, &mut cs, is_symbol_or_number_char,
                                  &mut tmp) {
                     Err(e) => {
