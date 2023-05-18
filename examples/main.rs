@@ -13,7 +13,7 @@ use anysexpr::read::{read_file, write_all};
 use anysexpr::parse::{Token, ParseSettings, parse, TokenWithPos};
 use anysexpr::buffered_chars::buffered_chars;
 use clap::Parser as ClapParser;
-use std::io::stdout;
+use std::io::{stdout, BufWriter};
 use std::path::PathBuf;
 use anyhow::{Result, bail};
 
@@ -56,7 +56,7 @@ fn main() -> Result<()> {
         
         let v: Vec<VValue> = read_file(&args.input_path)?;
         if args.print {
-            write_all(stdout(), &v)?;
+            write_all(BufWriter::new(stdout()), &v)?;
         }
 
     } else {
