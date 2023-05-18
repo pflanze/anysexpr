@@ -19,8 +19,7 @@ use anyhow::{Result, bail};
 
 
 fn indentstr(i: usize) -> Option<&'static str> {
-    let range = 0..i;
-    "                                                                  ".get(range)
+    "                                                                  ".get(0..i)
 }
 
 #[derive(clap::Parser, Debug)]
