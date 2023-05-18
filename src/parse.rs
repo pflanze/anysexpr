@@ -248,112 +248,135 @@ fn read_delimited(startpos: Pos,
     out.clear();
     let mut escaped = false;
     let mut lastpos = startpos;
+    let mut maybe_next_c_pos = None;
     loop {
-        if let Some(r) = cs.next() {
-            match r {
-                Err(e) => return Err(ParseError::IOError(e).at(lastpos)),
-                Ok((c, pos)) => {
-                    lastpos = pos;
-                    if escaped {
-                        // https://small.r7rs.org/attachment/r7rs.pdf 6.7. Strings
-                        let replacement = match c {
-                            'a' => "\x07", // alarm
-                            'b' => "\x08", // backspace
-                            't' => "\t",
-                            'n' => "\n",
-                            'r' => "\r",
-                            // (Not in R7RS(?), but why not?: man ascii
-                            'v' => "\x0B",
-                            'f' => "\x0C",
-                            // Supported by Guile (Gambit reads more digits):
-                            '0' => "\0",
-                            // /Not in R7RS)
-                            '\\' => "\\",
-                            '"' => "\"", // possible delimiter
-                            '\'' => "\'",
-                            '|' => "|", // possible delimiter
-                            '\n' => "",
-                            'u' => {
-                                out.push(
-                                    read_hex_char(delimiter, cs, pos, None, 4)?);
-                                ""
-                            }
-                            'U' => {
-                                // Supported by Gambit, not Guile
-                                out.push(
-                                    read_hex_char(delimiter, cs, pos, None, 8)?);
-                                ""
-                            }
-                            'x' => {
-                                // R7RS: Always terminated by a ';'
-                                out.push(
-                                    read_hex_char(delimiter, cs, pos, Some(';'), 8)?);
-                                // XX Guile: always read exactly 2 digits:
-                                // out.push(
-                                //     read_hex_char(delimiter, cs, pos, None, 2)?);
-                                // XX Gambit: reads as many digits as there are (huh)
-                                // both do not include the ';' in the sequence.
-                                ""
-                            }
-                            _ => {
-                                if c.is_ascii_digit() {
-                                    // Not in R7RS(?), but supported
-                                    // by Gambit Scheme, but not by
-                                    // Guile. Ignore?
-                                    
-                                    // How do these work?
-                                    // > (map char->integer (string->list "\322"))
-                                    // (210)
-                                    // > (map char->integer (string->list "\422"))
-                                    // (34 50)
-                                    // > (map char->integer (string->list "\0"))    
-                                    // (0)
-                                    // > (map char->integer (string->list "\00"))
-                                    // (0)
-                                    // > (map char->integer (string->list "\010"))
-                                    // (8)
-                                    // > (map char->integer (string->list "\10")) 
-                                    // (8)
-                                    // Gambit reads up to 3 digits, it
-                                    // seems, or rather until before the
-                                    // number exceepds 255?
-                                    todo!()
-                                } else {
-                                    return Err(ParseError::InvalidEscapedChar(c).at(pos))
-                                }
-                            }
-                        };
-                        out.push_str(replacement);
-                        escaped = false;
-                    } else {
-                        if c == '\\' {
-                            escaped = true;
-                        } else if c == delimiter {
-                            return Ok(());
-                        } else {
-                            out.push(c);
-                        }
+        let c;
+        let pos;
+        if let Some(cp) = maybe_next_c_pos {
+            (c, pos) = cp;
+            maybe_next_c_pos = None;
+        } else {
+            if let Some(r) = cs.next() {
+                match r {
+                    Err(e) => return Err(ParseError::IOError(e).at(lastpos)),
+                    Ok(cp) => {
+                        (c, pos) = cp;
                     }
                 }
+            } else {
+                return Err(ParseError::UnexpectedEOFInString(delimiter).at(startpos));
             }
+        }
+        lastpos = pos;
+        if escaped {
+            // https://small.r7rs.org/attachment/r7rs.pdf 6.7. Strings
+            let replacement = match c {
+                'a' => "\x07", // alarm
+                'b' => "\x08", // backspace
+                't' => "\t",
+                'n' => "\n",
+                'r' => "\r",
+                // (Not in R7RS(?), but why not?: man ascii
+                'v' => "\x0B",
+                'f' => "\x0C",
+                // Supported by Guile (Gambit reads more digits):
+                '0' => "\0",
+                // /Not in R7RS)
+                '\\' => "\\",
+                '"' => "\"", // possible delimiter
+                '\'' => "\'",
+                '|' => "|", // possible delimiter
+                'u' => {
+                    out.push(
+                        read_hex_char(delimiter, cs, pos, None, 4)?);
+                    ""
+                }
+                'U' => {
+                    // Supported by Gambit, not Guile
+                    out.push(
+                        read_hex_char(delimiter, cs, pos, None, 8)?);
+                    ""
+                }
+                'x' => {
+                    // R7RS: Always terminated by a ';'
+                    out.push(
+                        read_hex_char(delimiter, cs, pos, Some(';'), 8)?);
+                    // XX Guile: always read exactly 2 digits:
+                    // out.push(
+                    //     read_hex_char(delimiter, cs, pos, None, 2)?);
+                    // XX Gambit: reads as many digits as there are (huh)
+                    // both do not include the ';' in the sequence.
+                    ""
+                }
+                '\n' => {
+                    // Line continuation
+                    let (_lastc, mcp)=
+                        read_while(Some(c), pos, cs,
+                                   is_whitespace_char, None)?;
+                    if mcp.is_none() {
+                        return Err(ParseError::UnexpectedEOFInString(
+                            delimiter).at(startpos))
+                    }
+                    maybe_next_c_pos = mcp;
+                    ""
+                }
+                _ => {
+                    if c.is_ascii_digit() {
+                        // Not in R7RS(?), but supported
+                        // by Gambit Scheme, but not by
+                        // Guile. Ignore?
+
+                        // How do these work?
+                        // > (map char->integer (string->list "\322"))
+                        // (210)
+                        // > (map char->integer (string->list "\422"))
+                        // (34 50)
+                        // > (map char->integer (string->list "\0"))    
+                        // (0)
+                        // > (map char->integer (string->list "\00"))
+                        // (0)
+                        // > (map char->integer (string->list "\010"))
+                        // (8)
+                        // > (map char->integer (string->list "\10")) 
+                        // (8)
+                        // Gambit reads up to 3 digits, it
+                        // seems, or rather until before the
+                        // number exceepds 255?
+                        todo!()
+                    } else {
+                        return Err(ParseError::InvalidEscapedChar(c).at(pos))
+                    }
+                }
+            };
+            out.push_str(replacement);
+            escaped = false;
         } else {
-            return Err(ParseError::UnexpectedEOFInString(delimiter).at(startpos));
+            if c == '\\' {
+                escaped = true;
+            } else if c == delimiter {
+                return Ok(());
+            } else {
+                out.push(c);
+            }
         }
     }
 }
 
 // Returns (, None) iff reached EOF;
 // returns (None, ) iff reached EOF at the begin and no c was given.
-fn read_while(c: Option<char>,
-              startpos: Pos,
-              cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
-              accepted: fn(char) -> bool,
-              out: &mut String)
-              -> Result<(Option<char>, Option<(char, Pos)>),
-                        ParseErrorWithPos> {
-    out.clear();
-    if let Some(c) = c {
-        out.push(c);
+fn read_while(
+    c: Option<char>,
+    startpos: Pos,
+    cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
+    accepted: fn(char) -> bool,
+    mut opt_out: Option<&mut String>,
+) -> Result<(Option<char>, Option<(char, Pos)>),
+            ParseErrorWithPos> {
+    if let Some(ref mut out) = opt_out {
+        out.clear();
+        if let Some(c) = c {
+            out.push(c);
+        }
     }
     let mut lastc = c;
     let mut lastpos = startpos;
@@ -364,7 +387,9 @@ fn read_while(c: Option<char>,
                 Ok((c, pos)) => {
                     lastpos = pos;
                     if accepted(c) {
-                        out.push(c);
+                        if let Some(ref mut out) = opt_out {
+                            out.push(c);
+                        }
                         lastc = Some(c);
                     } else {
                         return Ok((lastc, Some((c, pos))));
@@ -450,7 +475,7 @@ pub fn parse(
             } else if c.is_whitespace() {
                 if settings.whitespace {
                     match read_while(Some(c), pos, &mut cs, is_whitespace_char,
-                                     &mut tmp) {
+                                     Some(&mut tmp)) {
                         Err(e) => {
                             co.yield_(Err(e)).await;
                             return;
@@ -472,7 +497,7 @@ pub fn parse(
             } else if c == ';' {
                 // line comments
                 match read_while(Some(c), pos, &mut cs, |c| c != '\n',
-                                 &mut tmp) {
+                                 Some(&mut tmp)) {
                     Err(e) => {
                         co.yield_(Err(e)).await;
                         return;
@@ -525,7 +550,7 @@ pub fn parse(
                 if c0 == '\\' {
                     // #\character
                     match read_while(None, pos, &mut cs, |c| c.is_ascii_alphabetic(),
-                                     &mut tmp) {
+                                     Some(&mut tmp)) {
                         Err(e) => {
                             co.yield_(Err(e)).await;
                             return;
@@ -562,7 +587,7 @@ pub fn parse(
                     // #true #false #:keyword #!special #<structure >
                     
                     match read_while(Some(c0), pos, &mut cs, |c| c.is_ascii_alphabetic(),
-                                     &mut tmp) {
+                                     Some(&mut tmp)) {
                         Err(e) => {
                             co.yield_(Err(e)).await;
                             return;
@@ -618,7 +643,7 @@ pub fn parse(
             } else {
                 // Numbers, symbols, keywords, Dot
                 match read_while(Some(c), pos, &mut cs, is_symbol_or_number_char,
-                                 &mut tmp) {
+                                 Some(&mut tmp)) {
                     Err(e) => {
                         co.yield_(Err(e)).await;
                         return;
