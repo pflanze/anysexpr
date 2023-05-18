@@ -21,8 +21,7 @@ This is an S-Expression parser and formatter with the following goals:
 * (Future) Support various s-expression variants (R*RS, Guile, Clojure,
   Common Lisp, ..) via runtime (and compile-time?) settings.
 
-* (Perhaps) be usable on microcontrollers (compilable small enough,
-  no-std?).
+* (Perhaps) be usable on microcontrollers (small code, no-std?).
 
 This is an early alpha version. Even some basics are unfinished
 (inexact and complex numbers, quoting sugar, some comment styles, ..).
