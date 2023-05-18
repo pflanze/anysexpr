@@ -14,7 +14,6 @@ use num::{BigInt, rational::Ratio};
 use kstring::KString;
 use thiserror::Error;
 use genawaiter::rc::Gen;
-use std::char::CharTryFromError;
 use std::fmt::Write;
 use std::convert::TryFrom;
 
@@ -42,7 +41,7 @@ pub enum ParseError {
     #[error("not a hex digit: '{0}'")]
     NonHexDigit(char),
     #[error("invalid code point {0}")]
-    InvalidCodePoint(CharTryFromError),
+    InvalidCodePoint(u32),
     #[error("missing delimiter '{0}' after code sequence")]
     MissingDelimiterForCodeSequence(char),
     #[error("too many digits in code sequence")]
@@ -127,6 +126,27 @@ impl std::fmt::Display for Token {
 #[derive(Debug)]
 pub struct TokenWithPos(pub Token, pub Pos);
 
+
+trait At<T> {
+    fn at(self, p: Pos) -> Result<T, ParseErrorWithPos>;
+}
+
+impl<T> At<T> for Result<T, ParseError> {
+    fn at(self, p: Pos) -> Result<T, ParseErrorWithPos> {
+        match self {
+            Err(e) => Err(e.at(p)),
+            Ok(v) => Ok(v)
+        }
+    }
+}
+
+fn try_u32_to_char(code: u32) -> Result<char, ParseError> {
+    if let Some(c) = char::from_u32(code) {
+        Ok(c)
+    } else {
+        Err(ParseError::InvalidCodePoint(code))
+    }
+}
 
 fn read_number(is_neg: bool, s: &str) -> Option<R5RSNumber> {
     let mut n: BigInt = 0.into();
@@ -247,10 +267,7 @@ fn read_hex_char(
     numdigits: u32,
 ) -> Result<char, ParseErrorWithPos> {
     let code = read_hex(outerdelimiter, cs, lastpos, delimiter, numdigits)?;
-    match code.try_into() {
-        Err(e) => Err(ParseError::InvalidCodePoint(e).at(lastpos)),
-        Ok(c) => Ok(c)
-    }
+    try_u32_to_char(code).at(lastpos)
 }
 
 fn read_delimited(startpos: Pos,
@@ -585,13 +602,7 @@ pub fn parse(
                                     // What about x?
                                     return
                                         if let Some(n) = parse_as_hexstr(&tmp[1..]) {
-                                            match n.try_into() {
-                                                Err(e) =>
-                                                    Err(
-                                                        ParseError::InvalidCodePoint(e)
-                                                            .at(pos)),
-                                                Ok(c) => Ok(c)
-                                            }
+                                            try_u32_to_char(n).at(pos)
                                         } else {
                                             Err(ParseError::InvalidHashToken.at(pos))
                                         };
