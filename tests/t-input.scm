@@ -31,11 +31,11 @@
 -1234/5678 ;; -617/2839
 1234/5678 ;; 617/2839
 
-#t
+#t #f
+;; #true #false  ;; supported by Guile, not Gambit
 ;; #f#t ;; Gambit reports this as invalid token
 (#f #t . #f)
 (#f #t .#f) ;; Gambit: proper list with a symbol at the end
-#t 
 
 #\a
 (#\newline )
