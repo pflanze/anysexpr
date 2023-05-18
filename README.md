@@ -38,7 +38,6 @@ See [examples/main.rs](examples/main.rs).
 
 * string escape features on printing
 * inexact and complex numbers
-* chars: `#\x...`, `#\u...`, `#\U...`
 * implement quote/quasiquote/unquote parsing
 * handle `#| |#` and `#;` style comments
 * Guile style keywords `#:foo`

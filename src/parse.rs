@@ -14,6 +14,7 @@ use num::{BigInt, rational::Ratio};
 use kstring::KString;
 use thiserror::Error;
 use genawaiter::rc::Gen;
+use std::char::CharTryFromError;
 use std::fmt::Write;
 use std::convert::TryFrom;
 
@@ -41,7 +42,7 @@ pub enum ParseError {
     #[error("not a hex digit: '{0}'")]
     NonHexDigit(char),
     #[error("invalid code point {0}")]
-    InvalidCodePoint(u32),
+    InvalidCodePoint(CharTryFromError),
     #[error("missing delimiter '{0}' after code sequence")]
     MissingDelimiterForCodeSequence(char),
     #[error("too many digits in code sequence")]
@@ -162,16 +163,29 @@ fn delimiter2maybe_stringlike_constructor(c: char) -> Option<fn(KString) -> Atom
     }
 }
 
-fn parse_hexdigit(c: char) -> Option<u32> {
-    if '0' <= c && c <= '9' {
-        Some(c as u32 - '0' as u32)
-    } else if 'a' <= c && c <= 'f' {
-        Some(c as u32 - 'a' as u32 + 10)
-    } else if 'A' <= c && c <= 'F' {
-        Some(c as u32 - 'F' as u32 + 10)
+// c is a unicode code point
+fn parse_hexdigit(c: u32) -> Option<u32> {
+    if '0' as u32 <= c && c <= '9' as u32 {
+        Some(c - '0' as u32)
+    } else if 'a' as u32 <= c && c <= 'f' as u32 {
+        Some(c - 'a' as u32 + 10)
+    } else if 'A' as u32 <= c && c <= 'F' as u32 {
+        Some(c - 'F' as u32 + 10)
     } else {
         None
     }
+}
+
+// s must be a hex string to the end or None is returned.
+fn parse_as_hexstr(s: &str) -> Option<u32> {
+    if s.len() > 8 {
+        return None
+    }
+    let mut n = 0;
+    for b in s.bytes() {
+        n = n * 16 + parse_hexdigit(b as u32)?;
+    }
+    Some(n)
 }
 
 // Reads exactly numdigits digits, or up to the given delimiter, in
@@ -198,7 +212,7 @@ fn read_hex(
                             return Ok(res)
                         }
                     }
-                    if let Some(n) = parse_hexdigit(c) {
+                    if let Some(n) = parse_hexdigit(c as u32) {
                         // This check is superfluous if no delimiter
                         // was given, but the alternatives appear more
                         // complicated.
@@ -233,10 +247,9 @@ fn read_hex_char(
     numdigits: u32,
 ) -> Result<char, ParseErrorWithPos> {
     let code = read_hex(outerdelimiter, cs, lastpos, delimiter, numdigits)?;
-    if let Some(c) = char::from_u32(code) {
-        Ok(c)
-    } else {
-        Err(ParseError::InvalidCodePoint(code).at(lastpos))
+    match code.try_into() {
+        Err(e) => Err(ParseError::InvalidCodePoint(e).at(lastpos)),
+        Ok(c) => Ok(c)
     }
 }
 
@@ -549,7 +562,7 @@ pub fn parse(
 
                 if c0 == '\\' {
                     // #\character
-                    match read_while(None, pos, &mut cs, |c| c.is_ascii_alphabetic(),
+                    match read_while(None, pos, &mut cs, is_symbol_or_number_char,
                                      Some(&mut tmp)) {
                         Err(e) => {
                             co.yield_(Err(e)).await;
@@ -565,6 +578,23 @@ pub fn parse(
                                 let c0 = tmp.chars().next().unwrap();
                                 if len == 1 {
                                     return Ok(c0)
+                                }
+                                if c0 == 'x' || c0 == 'u' || c0 == 'U' {
+                                    // XX should we refuse lengths
+                                    // other than 4 for u and 8 for U?
+                                    // What about x?
+                                    return
+                                        if let Some(n) = parse_as_hexstr(&tmp[1..]) {
+                                            match n.try_into() {
+                                                Err(e) =>
+                                                    Err(
+                                                        ParseError::InvalidCodePoint(e)
+                                                            .at(pos)),
+                                                Ok(c) => Ok(c)
+                                            }
+                                        } else {
+                                            Err(ParseError::InvalidHashToken.at(pos))
+                                        };
                                 }
                                 if let Some(c) = crate::value::name2char(&tmp) {
                                     return Ok(c)
