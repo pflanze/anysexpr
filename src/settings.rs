@@ -10,6 +10,15 @@
 //! Settings for both reading (parsing) and writing (serializing)
 //! data.
 
+#[derive(Debug)]
+pub struct Format {
+    octal_escapes_in_delimited: bool,
+}
+
+pub const GAMBIT_FORMAT : Format = Format {
+    octal_escapes_in_delimited: true,
+};
+
 
 #[derive(Debug)]
 pub struct Modes {
@@ -19,6 +28,7 @@ pub struct Modes {
 
 #[derive(Debug)]
 pub struct Settings {
+    pub format: Box<Format>,
     pub modes: Box<Modes>,
 }
 

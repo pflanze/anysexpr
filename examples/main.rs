@@ -11,7 +11,7 @@ use anysexpr::pos::Pos;
 use anysexpr::value::{VValue, Parenkind};
 use anysexpr::read::{read_file, write_all};
 use anysexpr::parse::{Token, parse, TokenWithPos};
-use anysexpr::settings::{Settings, Modes};
+use anysexpr::settings::{Settings, Modes, GAMBIT_FORMAT};
 use anysexpr::buffered_chars::buffered_chars;
 use clap::Parser as ClapParser;
 use std::io::{stdout, BufWriter};
@@ -68,6 +68,7 @@ fn main() -> Result<()> {
         let mut cs = buffered_chars(fh);
         let ts = parse(&mut cs,
                        Settings {
+                           format: Box::new(GAMBIT_FORMAT.clone()),
                            modes: Box::new(
                                Modes {
                                    retain_whitespace: args.whitespace,
