@@ -9,8 +9,9 @@
 
 use crate::pos::Pos;
 use crate::context::{self, Context};
-use crate::parse::{Token, TokenWithPos, ParseSettings, parse,
+use crate::parse::{Token, TokenWithPos, parse,
                    ParseError, ParseErrorWithPos};
+use crate::settings::Settings;
 use crate::value::{VValue, Parenkind};
 use crate::buffered_chars::buffered_chars;
 use std::fmt::{Formatter, Display, Debug};
@@ -230,7 +231,7 @@ pub fn read_all(
 ) -> Result<Vec<VValue>, ReadErrorWithPos>
 {
     let mut cs = buffered_chars(fh);
-    let settings = ParseSettings {
+    let settings = Settings {
         whitespace: false,
         comments: false,
     };

@@ -7,11 +7,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-pub mod buffered_chars; // although this is a hack
-pub mod context;
-pub mod number;
-pub mod parse;
-pub mod pos;
-pub mod read;
-pub mod settings;
-pub mod value;
+//! Settings for both reading (parsing) and writing (serializing)
+//! data.
+
+
+#[derive(Debug)]
+pub struct Settings {
+    pub whitespace: bool,
+    pub comments: bool,
+}
+

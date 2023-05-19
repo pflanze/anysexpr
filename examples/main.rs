@@ -10,7 +10,8 @@
 use anysexpr::pos::Pos;
 use anysexpr::value::{VValue, Parenkind};
 use anysexpr::read::{read_file, write_all};
-use anysexpr::parse::{Token, ParseSettings, parse, TokenWithPos};
+use anysexpr::parse::{Token, parse, TokenWithPos};
+use anysexpr::settings::Settings;
 use anysexpr::buffered_chars::buffered_chars;
 use clap::Parser as ClapParser;
 use std::io::{stdout, BufWriter};
@@ -66,7 +67,7 @@ fn main() -> Result<()> {
         let fh = std::fs::File::open(&args.input_path)?;
         let mut cs = buffered_chars(fh);
         let ts = parse(&mut cs,
-                       ParseSettings {
+                       Settings {
                            whitespace: args.whitespace,
                            comments: args.comments,
                        });

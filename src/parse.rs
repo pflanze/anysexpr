@@ -10,6 +10,7 @@
 use crate::pos::Pos;
 use crate::value::{Atom, Parenkind};
 use crate::number::R5RSNumber;
+use crate::settings::Settings;
 use num::{BigInt, rational::Ratio};
 use kstring::KString;
 use thiserror::Error;
@@ -459,15 +460,9 @@ fn is_digit(c: char) -> bool {
     c.is_ascii_digit()
 }
 
-#[derive(Debug)]
-pub struct ParseSettings {
-    pub whitespace: bool,
-    pub comments: bool,
-}
-
 pub fn parse(
     cs: impl Iterator<Item = anyhow::Result<(char, Pos)>>,
-    settings: ParseSettings,
+    settings: Settings,
 )
     -> impl Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>
 {
