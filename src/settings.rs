@@ -12,8 +12,13 @@
 
 
 #[derive(Debug)]
-pub struct Settings {
+pub struct Modes {
     pub retain_whitespace: bool,
     pub retain_comments: bool,
+}
+
+#[derive(Debug)]
+pub struct Settings {
+    pub modes: Box<Modes>,
 }
 

@@ -498,7 +498,7 @@ pub fn parse(
             if let Some(t) = maybe_open_close(c) {
                 co.yield_(Ok(TokenWithPos(t, pos))).await;
             } else if c.is_whitespace() {
-                if settings.retain_whitespace {
+                if settings.modes.retain_whitespace {
                     match read_while(Some(c), pos, &mut cs, is_whitespace_char,
                                      Some(&mut tmp)) {
                         Err(e) => {
@@ -528,7 +528,7 @@ pub fn parse(
                         return;
                     }
                     Ok((_lastc, mcp)) => {
-                        if settings.retain_comments {
+                        if settings.modes.retain_comments {
                             let (start, rest) =
                                 take_while_and_rest(&tmp, |c| c == ';');
                             let nsemicolons = start.len();
