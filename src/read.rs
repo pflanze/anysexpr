@@ -11,7 +11,7 @@ use crate::pos::Pos;
 use crate::context::{self, Context};
 use crate::parse::{Token, TokenWithPos, parse,
                    ParseError, ParseErrorWithPos};
-use crate::settings::{Settings, Modes};
+use crate::settings::{Settings, Modes, GAMBIT_FORMAT};
 use crate::value::{VValue, Parenkind};
 use crate::buffered_chars::buffered_chars;
 use std::fmt::{Formatter, Display, Debug};
@@ -232,14 +232,15 @@ pub fn read_all(
 {
     let mut cs = buffered_chars(fh);
     let settings = Settings {
-        modes: Box::new(Modes {
+        format: &GAMBIT_FORMAT,
+        modes: &Modes {
             retain_whitespace: false,
             retain_comments: false,
-        })
+        },
     };
     let depth_fuel = 500;
     // ^ the limit with default settings on Linux is around 1200
-    let mut ts = parse(&mut cs, settings);
+    let mut ts = parse(&mut cs, &settings);
     let (v, maybedot) = slurp(
         &mut ts,
         None,

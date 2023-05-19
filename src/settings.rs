@@ -27,8 +27,8 @@ pub struct Modes {
 }
 
 #[derive(Debug)]
-pub struct Settings {
-    pub format: Box<Format>,
-    pub modes: Box<Modes>,
+pub struct Settings<'t> {
+    pub format: &'t Format,
+    pub modes: &'t Modes,
 }
 

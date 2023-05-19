@@ -67,14 +67,12 @@ fn main() -> Result<()> {
         let fh = std::fs::File::open(&args.input_path)?;
         let mut cs = buffered_chars(fh);
         let ts = parse(&mut cs,
-                       Settings {
-                           format: Box::new(GAMBIT_FORMAT.clone()),
-                           modes: Box::new(
-                               Modes {
-                                   retain_whitespace: args.whitespace,
-                                   retain_comments: args.comments,
-                               })
-                       });
+                       &Settings {
+                           format: &GAMBIT_FORMAT,
+                           modes: &Modes {
+                               retain_whitespace: args.whitespace,
+                               retain_comments: args.comments,
+                           }});
         let mut count_toplevel = 0;
         let mut count_enter = 0;
         let mut parenstack: Vec<(Parenkind, Pos)> = Vec::new();

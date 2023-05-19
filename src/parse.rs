@@ -460,11 +460,11 @@ fn is_digit(c: char) -> bool {
     c.is_ascii_digit()
 }
 
-pub fn parse(
-    cs: impl Iterator<Item = anyhow::Result<(char, Pos)>>,
-    settings: Settings,
+pub fn parse<'s>(
+    cs: impl Iterator<Item = anyhow::Result<(char, Pos)>> + 's,
+    settings: &'s Settings,
 )
-    -> impl Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>
+    -> impl Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>> + 's
 {
     Gen::new(|co| async move {
         let mut cs = cs;
