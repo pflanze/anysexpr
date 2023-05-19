@@ -232,8 +232,8 @@ pub fn read_all(
 {
     let mut cs = buffered_chars(fh);
     let settings = Settings {
-        whitespace: false,
-        comments: false,
+        retain_whitespace: false,
+        retain_comments: false,
     };
     let depth_fuel = 500;
     // ^ the limit with default settings on Linux is around 1200

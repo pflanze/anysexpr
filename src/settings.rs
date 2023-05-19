@@ -13,7 +13,7 @@
 
 #[derive(Debug)]
 pub struct Settings {
-    pub whitespace: bool,
-    pub comments: bool,
+    pub retain_whitespace: bool,
+    pub retain_comments: bool,
 }
 

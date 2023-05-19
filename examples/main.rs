@@ -68,8 +68,8 @@ fn main() -> Result<()> {
         let mut cs = buffered_chars(fh);
         let ts = parse(&mut cs,
                        Settings {
-                           whitespace: args.whitespace,
-                           comments: args.comments,
+                           retain_whitespace: args.whitespace,
+                           retain_comments: args.comments,
                        });
         let mut count_toplevel = 0;
         let mut count_enter = 0;
