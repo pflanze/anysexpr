@@ -197,6 +197,15 @@ fn parse_hexdigit(c: u32) -> Option<u32> {
     }
 }
 
+// c is a unicode code point
+fn parse_octaldigit(c: u32) -> Option<u32> {
+    if '0' as u32 <= c && c <= '7' as u32 {
+        Some(c - '0' as u32)
+    } else {
+        None
+    }
+}
+
 // s must be a hex string to the end or None is returned.
 fn parse_as_hexstr(s: &str) -> Option<u32> {
     if s.len() > 8 {
@@ -271,11 +280,56 @@ fn read_hex_char(
     try_u32_to_char(code).at(lastpos)
 }
 
-fn read_delimited(startpos: Pos,
-                  cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
-                  delimiter: char,
-                  out: &mut String)
-                  -> Result<(), ParseErrorWithPos> {
+/// Returns `Some((c, None))` iff at EOF.
+fn read_octalescape_char(
+    startpos: Pos,
+    c: char,
+    pos: Pos,
+    cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
+) -> Result<(char, Option<(char, Pos)>), ParseErrorWithPos>
+{
+    if let Some(d) = parse_octaldigit(c as u32) {
+        let finish = |n, mcp| {
+            Ok((try_u32_to_char(n).at(startpos)?, mcp))
+        };
+        let mut n = d;
+        let mut lastpos = pos;
+        let mut i = 1; // we have 1 character already
+        loop {
+            if let Some(r) = cs.next() {
+                match r {
+                    Err(e) => return Err(ParseError::IOError(e).at(lastpos)),
+                    Ok((c, pos)) => {
+                        if i < 3 {
+                            if let Some(d) = parse_octaldigit(c as u32) {
+                                n = n * 8 + d;
+                                lastpos = pos;
+                                i += 1;
+                            } else {
+                                return finish(n, Some((c, pos)))
+                            } 
+                        } else {
+                            return finish(n, Some((c, pos)))
+                        }
+                    }
+                }
+            } else {
+                return finish(n, None)
+            }
+        }
+    } else {
+        Err(ParseError::InvalidEscapedChar(c).at(startpos))
+    }
+}
+
+fn read_delimited(
+    settings: &Settings, 
+    startpos: Pos,
+    cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
+    delimiter: char,
+    out: &mut String
+) -> Result<(), ParseErrorWithPos>
+{
     out.clear();
     let mut escaped = false;
     let mut lastpos = startpos;
@@ -310,8 +364,6 @@ fn read_delimited(startpos: Pos,
                 // (Not in R7RS(?), but why not?: man ascii
                 'v' => "\x0B",
                 'f' => "\x0C",
-                // Supported by Guile (Gambit reads more digits):
-                '0' => "\0",
                 // /Not in R7RS)
                 '\\' => "\\",
                 '"' => "\"", // possible delimiter
@@ -329,14 +381,15 @@ fn read_delimited(startpos: Pos,
                     ""
                 }
                 'x' => {
-                    // R7RS: Always terminated by a ';'
+                    let terminator =
+                        if settings.format.x_escape_terminated_by_semicolon_in_delimited {
+                            Some(';')
+                        } else {
+                            None
+                        };
+                    let maxlen = settings.format.x_escape_maxlen as u32;
                     out.push(
-                        read_hex_char(delimiter, cs, pos, Some(';'), 8)?);
-                    // XX Guile: always read exactly 2 digits:
-                    // out.push(
-                    //     read_hex_char(delimiter, cs, pos, None, 2)?);
-                    // XX Gambit: reads as many digits as there are (huh)
-                    // both do not include the ';' in the sequence.
+                        read_hex_char(delimiter, cs, pos, terminator, maxlen)?);
                     ""
                 }
                 '\n' => {
@@ -352,12 +405,11 @@ fn read_delimited(startpos: Pos,
                     ""
                 }
                 _ => {
-                    if c.is_ascii_digit() {
+                    if settings.format.octal_escapes_in_delimited {
                         // Not in R7RS(?), but supported
                         // by Gambit Scheme, but not by
-                        // Guile. Ignore?
+                        // Guile.
 
-                        // How do these work?
                         // > (map char->integer (string->list "\322"))
                         // (210)
                         // > (map char->integer (string->list "\422"))
@@ -370,10 +422,30 @@ fn read_delimited(startpos: Pos,
                         // (8)
                         // > (map char->integer (string->list "\10")) 
                         // (8)
-                        // Gambit reads up to 3 digits, it
-                        // seems, or rather until before the
-                        // number exceepds 255?
-                        todo!()
+                        // > "\0000"  
+                        // "\0\60"
+                        // > (string->list "\0000")
+                        // (#\nul #\0)
+                        // > (string->list "\34")  
+                        // (#\x1c)
+                        // > (string->list "\01a")
+                        // (#\x01 #\a)
+                        // > (string->list "\017")
+                        // (#\x0f)
+                        // > (string->list "\018")
+                        // (#\x01 #\8)
+
+                        // So, Gambit reads 1..3 octal digits; it
+                        // makes up for the ambiguity by escaping the
+                        // follow-up character when writing.
+                        let (c, mcp) = read_octalescape_char(startpos, c, pos, cs)?;
+                        out.push(c);
+                        maybe_next_c_pos = mcp;
+                        ""
+                    } else if c == '0' {
+                        // Supported by Guile (Gambit reads more
+                        // digits, see branch above)
+                        "\0"
                     } else {
                         return Err(ParseError::InvalidEscapedChar(c).at(pos))
                     }
@@ -661,7 +733,7 @@ pub fn parse<'s>(
             } else if let Some(constructor) =
                 delimiter2maybe_stringlike_constructor(c)
             {
-                match read_delimited(pos, &mut cs, c, &mut tmp) {
+                match read_delimited(settings, pos, &mut cs, c, &mut tmp) {
                     Err(e) => {
                         co.yield_(Err(e)).await;
                         return;

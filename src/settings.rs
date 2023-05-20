@@ -12,11 +12,27 @@
 
 #[derive(Debug)]
 pub struct Format {
-    octal_escapes_in_delimited: bool,
+    pub octal_escapes_in_delimited: bool,
+    pub x_escape_terminated_by_semicolon_in_delimited: bool,
+    pub x_escape_maxlen: u8,
 }
 
 pub const GAMBIT_FORMAT : Format = Format {
     octal_escapes_in_delimited: true,
+    x_escape_terminated_by_semicolon_in_delimited: false,
+    x_escape_maxlen: 8,
+};
+
+pub const R7RS_FORMAT : Format = Format {
+    octal_escapes_in_delimited: false,
+    x_escape_terminated_by_semicolon_in_delimited: true,
+    x_escape_maxlen: 8, // XX check
+};
+
+pub const GUILE_FORMAT : Format = Format {
+    octal_escapes_in_delimited: false,
+    x_escape_terminated_by_semicolon_in_delimited: true, // ?
+    x_escape_maxlen: 2,
 };
 
 
