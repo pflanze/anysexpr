@@ -220,7 +220,7 @@ fn parse_as_hexstr(s: &str) -> Option<u32> {
 
 // Reads exactly numdigits digits, or up to the given delimiter, in
 // which case numdigits is the max digits allowed
-fn read_hex(
+fn read_hex_as_u32(
     outerdelimiter: char,
     cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
     codestartpos: Pos,
@@ -269,14 +269,15 @@ fn read_hex(
     }
 }
 
-fn read_hex_char(
+// Read a hex number and convert to a char; used in read_delimited.
+fn read_hex_as_char(
     outerdelimiter: char,
     cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
     lastpos: Pos,
     delimiter: Option<char>,
     numdigits: u32,
 ) -> Result<char, ParseErrorWithPos> {
-    let code = read_hex(outerdelimiter, cs, lastpos, delimiter, numdigits)?;
+    let code = read_hex_as_u32(outerdelimiter, cs, lastpos, delimiter, numdigits)?;
     try_u32_to_char(code).at(lastpos)
 }
 
@@ -371,13 +372,13 @@ fn read_delimited(
                 '|' => "|", // possible delimiter
                 'u' => {
                     out.push(
-                        read_hex_char(delimiter, cs, pos, None, 4)?);
+                        read_hex_as_char(delimiter, cs, pos, None, 4)?);
                     ""
                 }
                 'U' => {
                     // Supported by Gambit, not Guile
                     out.push(
-                        read_hex_char(delimiter, cs, pos, None, 8)?);
+                        read_hex_as_char(delimiter, cs, pos, None, 8)?);
                     ""
                 }
                 'x' => {
@@ -389,7 +390,7 @@ fn read_delimited(
                         };
                     let maxlen = settings.format.x_escape_maxlen as u32;
                     out.push(
-                        read_hex_char(delimiter, cs, pos, terminator, maxlen)?);
+                        read_hex_as_char(delimiter, cs, pos, terminator, maxlen)?);
                     ""
                 }
                 '\n' => {
