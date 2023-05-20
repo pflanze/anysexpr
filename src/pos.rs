@@ -9,6 +9,9 @@
 
 use std::cmp::Eq;
 
+/// Both line and col are zero based; Emacs uses 1-based line
+/// numbering, so line is incremented by 1 in Display.
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Pos {
     pub line: u32,
