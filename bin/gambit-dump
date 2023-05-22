@@ -1,0 +1,9 @@
+#!/bin/bash
+set -euo pipefail
+# enable job control consistently, not just when there is a tty:
+set -m
+IFS=
+
+export input_file="$1"
+
+exec gsi -:tE,dar,t8,f8,-8 bin/dump.scm
