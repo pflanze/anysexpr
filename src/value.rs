@@ -11,7 +11,7 @@
 
 //! Whereas [Atom](Atom) does not include lists, [VValue](VValue) adds
 //! lists implemented using Rust vectors. [VValue](VValue) can
-//! represent improper lists only as long as there are no cycles.
+//! represent improper lists, but no cycles.
 
 use crate::number::R5RSNumber;
 use std::fmt::Write;
