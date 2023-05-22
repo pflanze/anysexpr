@@ -6,7 +6,7 @@ IFS=
 
 usage() {
     echo "$0 tests/t-input.scm ..."
-    echo "  Verifies that the corresponding file tests/t-expected.scm"
+    echo "  Verifies that the corresponding file tests/t-write.scm"
     echo "  translates to the same output when fed through gambit-roundtrip"
     exit 1
 }
@@ -19,7 +19,7 @@ inpexptmp="$(mktemp)"
 expexptmp="$(mktemp)"
 
 for inp in "$@"; do
-    exp="$(printf '%s' "$inp" | sed 's/-input.scm$/-expected.scm/')"
+    exp="$(printf '%s' "$inp" | sed 's/-input.scm$/-write.scm/')"
     bin/gambit-roundtrip "$inp" > "$inpexptmp"
     bin/gambit-roundtrip "$exp" > "$expexptmp"
     diff -u "$expexptmp" "$inpexptmp"
