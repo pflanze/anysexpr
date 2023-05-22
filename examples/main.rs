@@ -32,6 +32,9 @@ struct Args {
     /// Print the parsed data
     #[clap(long, value_parser)]
     print: bool,
+    /// Write a debugging dump of the parsed data (only works with --ast)
+    #[clap(long, value_parser)]
+    dump: bool,
     /// Show the token position (only with --print and no --ast)
     #[clap(long, value_parser)]
     pos: bool,
@@ -54,9 +57,13 @@ fn main() -> Result<()> {
         // Slurp in the whole file contents as a list of trees, then
         // optionally print those.
         
-        let v: Vec<VValue> = read_file(&args.input_path)?;
+        let vals: Vec<VValue> = read_file(&args.input_path)?;
         if args.print {
-            write_all(BufWriter::new(stdout()), &v)?;
+            write_all(BufWriter::new(stdout()), &vals)?;
+        }
+        if args.dump {
+            let vals2 : Vec<VValue> = vals.iter().map(|v| v.dump()).collect();
+            write_all(BufWriter::new(stdout()), &vals2)?;
         }
 
     } else {

@@ -13,7 +13,7 @@
 use num::{BigInt, rational::Ratio};
 
 /// TODO: complex numbers, inexact reals
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum R5RSNumber {
     // Complex(Box<R5RSNumber>, Box<R5RSNumber>),
     // Real(f64),

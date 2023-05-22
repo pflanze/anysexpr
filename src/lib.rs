@@ -46,3 +46,4 @@ pub mod pos;
 pub mod read;
 pub mod settings;
 pub mod value;
+pub mod debug;

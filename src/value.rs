@@ -17,7 +17,7 @@ use crate::number::R5RSNumber;
 use std::fmt::Write;
 use kstring::KString;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Atom {
     Bool(bool),
     Char(char),
