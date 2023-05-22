@@ -15,15 +15,16 @@
 //! * Good error reporting (precise location information and
 //!   messages).
 //! 
-//! * (Future) Make the data constructors for `anysexpr::read`
+//! * (Future) Make the data constructors for [anysexpr::read](crate::read)
 //!   parametrizable (generic), e.g. like in the `sexpr_parser` crate.
 //! 
-//! * Streaming: allow to read from and print to file handles lazily, for
-//!   use e.g. in communications. This currently works by using
-//!   `anysexpr::parse` directly for input, or creating tokens to print
-//!   via a custom loop for output. Future: more possibilities, e.g. turn
-//!   a tree into a token stream, or parameterize with a tree that's
-//!   generated on demand while printing.
+//! * Streaming: allow to read from and print to file handles lazily,
+//!   for use e.g. in communications. This currently works by using
+//!   [anysexpr::parse](crate::parse) directly for input, or creating
+//!   tokens to print via a custom loop for output. Future: more
+//!   possibilities, e.g. turn a tree into a token stream, or
+//!   parameterize with a tree that's generated on demand while
+//!   printing.
 //! 
 //! * (Future) Support various s-expression variants (R*RS, Guile, Clojure,
 //!   Common Lisp, ..) via runtime (and compile-time?) settings.

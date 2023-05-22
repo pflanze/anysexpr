@@ -9,8 +9,7 @@
 
 //! A position within a stream.
 
-//! For building full context, also see
-//! [context.rs](../context/index.html).
+//! For building full context, also see [context](crate::context).
 
 //! Both line and col are zero based; Emacs uses 1-based line
 //! numbering, so line is incremented by 1 in Display.

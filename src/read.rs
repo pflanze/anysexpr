@@ -9,7 +9,8 @@
 
 //! The implementation of the lisp `read` function (as well as helpers
 //! around it), i.e. parsing a character stream to an S-expression
-//! tree representation.
+//! tree representation. See [parse](crate::parse) for using the
+//! underlying tokenizer directly.
 
 use crate::pos::Pos;
 use crate::context::{self, Context};

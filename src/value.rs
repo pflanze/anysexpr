@@ -9,9 +9,9 @@
 
 //! Runtime data types representing an S-expression value.
 
-//! Whereas `Atom` does not include lists, `VValue` adds lists
-//! implemented using Rust vectors. `VValue` can represent improper
-//! lists only as long as there are no cycles.
+//! Whereas [Atom](Atom) does not include lists, [VValue](VValue) adds
+//! lists implemented using Rust vectors. [VValue](VValue) can
+//! represent improper lists only as long as there are no cycles.
 
 use crate::number::R5RSNumber;
 use std::fmt::Write;
