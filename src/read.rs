@@ -231,6 +231,8 @@ fn slurp(
     }
 }
 
+/// Read (deserialize) the contents of an input stream to a sequence
+/// of [VValue](VValue).
 pub fn read_all(
     fh: impl Read,
 ) -> Result<Vec<VValue>, ReadErrorWithPos>
@@ -257,12 +259,16 @@ pub fn read_all(
     }
 }
 
+/// Read (deserialize) the contents of a file to a sequence of
+/// [VValue](VValue).
 pub fn read_file(path: &Path) -> Result<Vec<VValue>, ReadErrorWithLocation> {
     let fh = io_add_file(File::open(path), path)?;
     let v = rewp_add_file(read_all(fh), path)?;
     Ok(v)
 }
 
+/// Write (serialize) a sequence of [VValue](VValue) to an output
+/// stream.
 pub fn write_all<'t>(
     out: impl Write,
     vals: impl IntoIterator<Item = &'t VValue>
@@ -276,6 +282,7 @@ pub fn write_all<'t>(
     Ok(())
 }
 
+/// Write (serialize) a sequence of [VValue](VValue) to a file.
 pub fn write_file<'t>(path: &Path, vals: impl IntoIterator<Item = &'t VValue>)
                       -> Result<(), std::io::Error> {
     write_all(File::open(path)?, vals)

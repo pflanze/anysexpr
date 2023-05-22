@@ -75,6 +75,7 @@ impl ParseError {
     }
 }
 
+/// Possibly return opening or closing token for a given character.
 pub fn maybe_open_close(c: char) -> Option<Token> {
     match c {
         '(' => Some(Token::Open(Parenkind::Round)),
@@ -570,6 +571,8 @@ fn is_digit(c: char) -> bool {
     c.is_ascii_digit()
 }
 
+/// Parse a stream of characters and their positions into a stream of
+/// tokens (atoms or opening/closing tokens).
 pub fn parse<'s>(
     cs: impl Iterator<Item = anyhow::Result<(char, Pos)>> + 's,
     settings: &'s Settings,
