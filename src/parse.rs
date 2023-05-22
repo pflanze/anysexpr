@@ -11,7 +11,8 @@
 //! (currently) called "parser" because it fully parses atoms (like
 //! strings, symbols, etc.), thus "tokenizer" may be selling it short
 //! (?). The only tokens that denote nesting are `Token::Open` and
-//! `Token::Close`.
+//! `Token::Close`. See [read](../read/index.html) if interested in
+//! trees rather than atoms / tokens.
 
 use crate::pos::Pos;
 use crate::value::{Atom, Parenkind};
