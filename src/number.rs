@@ -7,8 +7,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! A representation of the number types possible in S-expressions
+//! (numeric tower).
+
 use num::{BigInt, rational::Ratio};
 
+/// TODO: complex numbers, inexact reals
 #[derive(Debug)]
 pub enum R5RSNumber {
     // Complex(Box<R5RSNumber>, Box<R5RSNumber>),

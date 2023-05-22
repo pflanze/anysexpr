@@ -7,6 +7,15 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! Get characters and their positions from anything implementing
+//! `Read`.
+
+//! This exists because it's not clear if any dependency (some of them
+//! large) would be better.
+
+/// TODO: This uses genawaiter, find out if that is a performance
+/// bottleneck.
+
 use crate::pos::Pos;
 use std::io::{self, Read};
 use anyhow::{Result, anyhow};

@@ -7,10 +7,15 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::cmp::Eq;
+//! A position within a stream.
 
-/// Both line and col are zero based; Emacs uses 1-based line
-/// numbering, so line is incremented by 1 in Display.
+//! For building full context, also see
+//! [context.rs](../context/index.html).
+
+//! Both line and col are zero based; Emacs uses 1-based line
+//! numbering, so line is incremented by 1 in Display.
+
+use std::cmp::Eq;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Pos {

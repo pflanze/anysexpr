@@ -7,6 +7,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! The implementation of the lisp `read` function (as well as helpers
+//! around it), i.e. parsing a character stream to an S-expression
+//! tree representation.
+
 use crate::pos::Pos;
 use crate::context::{self, Context};
 use crate::parse::{Token, TokenWithPos, parse,

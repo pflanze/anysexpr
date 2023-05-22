@@ -7,6 +7,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! Translating a character stream to a token stream. This is
+//! (currently) called "parser" because it fully parses atoms (like
+//! strings, symbols, etc.), thus "tokenizer" may be selling it short
+//! (?). The only tokens that denote nesting are `Token::Open` and
+//! `Token::Close`.
+
 use crate::pos::Pos;
 use crate::value::{Atom, Parenkind};
 use crate::number::R5RSNumber;
