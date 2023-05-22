@@ -149,6 +149,21 @@ fn try_u32_to_char(code: u32) -> Result<char, ParseError> {
     }
 }
 
+fn try_io<T>(
+    o: Option<anyhow::Result<T>>,
+    error_pos: Pos
+) -> Result<Option<T>, ParseErrorWithPos> {
+    match o {
+        Some(r) => {
+            match r  {
+                Err(e) => Err(ParseError::IOError(e).at(error_pos)),
+                Ok(v) => Ok(Some(v))
+            }
+        }
+        None => Ok(None)
+    }
+}
+
 fn read_number(is_neg: bool, s: &str) -> Option<R5RSNumber> {
     let mut n: BigInt = 0.into();
     let mut cs = s.chars();
@@ -218,54 +233,60 @@ fn parse_as_hexstr(s: &str) -> Option<u32> {
     Some(n)
 }
 
+#[derive(PartialEq)]
+enum ReadMode {
+    /// Read exactly `numdigits` digits
+    Exactlen,
+    /// Read up to `numdigits` digits, stop at first non-digit
+    FlexLen,
+    /// Read up to the given delimiter, allow up to `numdigits` digits
+    Delimiter(char),
+}
+
 // Reads exactly numdigits digits, or up to the given delimiter, in
 // which case numdigits is the max digits allowed
 fn read_hex_as_u32(
     outerdelimiter: char,
     cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
     codestartpos: Pos,
-    delimiter: Option<char>,
+    readmode: ReadMode,
     numdigits: u32,
-) -> Result<u32, ParseErrorWithPos> {
+) -> Result<(u32, Option<(char, Pos)>), ParseErrorWithPos> {
     let mut res: u32 = 0;
     let mut lastpos = codestartpos;
     let mut numdigits_seen = 0;
-    // Checking numdigits_seen in two places: if delimiter given, we
-    // need to read cs.next even if we have all characters already.
-    while delimiter.is_some() || numdigits_seen < numdigits {
+    loop {
         if let Some(r) = cs.next() {
             match r {
                 Err(e) => return Err(ParseError::IOError(e).at(lastpos)),
                 Ok((c, pos)) => {
-                    if let Some(delim) = delimiter {
+                    if let ReadMode::Delimiter(delim) = readmode {
                         if c == delim {
-                            return Ok(res)
-                        }
-                    }
-                    if let Some(n) = parse_hexdigit(c as u32) {
-                        // This check is superfluous if no delimiter
-                        // was given, but the alternatives appear more
-                        // complicated.
-                        if numdigits_seen == numdigits {
+                            return Ok((res, try_io(cs.next(), pos)?))
+                        } else if numdigits_seen == numdigits {
                             return Err(ParseError::TooManyDigits.at(pos))
                         }
+                    } else if numdigits_seen == numdigits {
+                        return Ok((res, Some((c, pos))))
+                    }
+                    if let Some(n) = parse_hexdigit(c as u32) {
                         res *= 16;
                         res += n;
                         numdigits_seen += 1;
                         lastpos = pos;
                     } else {
-                        return Err(ParseError::NonHexDigit(c).at(pos))
+                        return
+                            if readmode == ReadMode::FlexLen {
+                                Ok((res, Some((c, pos))))
+                            } else {
+                                Err(ParseError::NonHexDigit(c).at(pos))
+                            };
                     }
                 }
             }
         } else {
             return Err(ParseError::UnexpectedEOFInString(outerdelimiter).at(lastpos));
         }
-    }
-    if let Some(delim) = delimiter {
-        Err(ParseError::MissingDelimiterForCodeSequence(delim).at(codestartpos))
-    } else {
-        Ok(res)
     }
 }
 
@@ -274,11 +295,12 @@ fn read_hex_as_char(
     outerdelimiter: char,
     cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
     lastpos: Pos,
-    delimiter: Option<char>,
+    readmode: ReadMode,
     numdigits: u32,
-) -> Result<char, ParseErrorWithPos> {
-    let code = read_hex_as_u32(outerdelimiter, cs, lastpos, delimiter, numdigits)?;
-    try_u32_to_char(code).at(lastpos)
+) -> Result<(char, Option<(char, Pos)>), ParseErrorWithPos> {
+    let (code, mcp) = read_hex_as_u32(outerdelimiter, cs, lastpos,
+                                      readmode, numdigits)?;
+    Ok((try_u32_to_char(code).at(lastpos)?, mcp))
 }
 
 /// Returns `Some((c, None))` iff at EOF.
@@ -371,26 +393,33 @@ fn read_delimited(
                 '\'' => "\'",
                 '|' => "|", // possible delimiter
                 'u' => {
-                    out.push(
-                        read_hex_as_char(delimiter, cs, pos, None, 4)?);
+                    let (c, mcp) = read_hex_as_char(delimiter, cs, pos,
+                                                    ReadMode::Exactlen, 4)?;
+                    out.push(c);
+                    maybe_next_c_pos = mcp;
                     ""
                 }
                 'U' => {
                     // Supported by Gambit, not Guile
-                    out.push(
-                        read_hex_as_char(delimiter, cs, pos, None, 8)?);
+                    let (c, mcp) = read_hex_as_char(delimiter, cs, pos,
+                                                    ReadMode::Exactlen, 8)?;
+                    out.push(c);
+                    maybe_next_c_pos = mcp;
                     ""
                 }
                 'x' => {
-                    let terminator =
-                        if settings.format.x_escape_terminated_by_semicolon_in_delimited {
-                            Some(';')
+                    let mode =
+                        if settings.format.
+                        x_escape_terminated_by_semicolon_in_delimited {
+                            ReadMode::Delimiter(';')
                         } else {
-                            None
+                            ReadMode::FlexLen
                         };
-                    let maxlen = settings.format.x_escape_maxlen as u32;
-                    out.push(
-                        read_hex_as_char(delimiter, cs, pos, terminator, maxlen)?);
+                    let numdigits = settings.format.x_escape_len as u32;
+                    let (c, mcp) = read_hex_as_char(delimiter, cs, pos,
+                                                    mode, numdigits)?;
+                    out.push(c);
+                    maybe_next_c_pos = mcp;
                     ""
                 }
                 '\n' => {
