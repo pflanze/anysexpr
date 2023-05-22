@@ -8,16 +8,27 @@
 // except according to those terms.
 
 use anyhow::Result;
-use anysexpr::read::{read_all, write_all};
+use anysexpr::{read::{read_all, write_all}, value::VValue};
 
 const INPUT: &[u8] = include_bytes!("t-input.scm");
-const EXPECTED: &[u8] = include_bytes!("t-expected.scm");
+const WRITE: &[u8] = include_bytes!("t-write.scm");
+const DUMP: &[u8] = include_bytes!("t-dump.scm");
 
 #[test]
-fn t1() -> Result<()> {
+fn roundtrip1() -> Result<()> {
     let vals = read_all(INPUT)?;
     let mut out = Vec::<u8>::new();
     write_all(&mut out, &vals)?;
-    assert_eq!(out, EXPECTED);
+    assert_eq!(out, WRITE);
+    Ok(())
+}
+
+#[test]
+fn dump() -> Result<()> {
+    let vals = read_all(INPUT)?;
+    let vals2 : Vec<VValue> = vals.iter().map(|v| v.dump()).collect();
+    let mut out = Vec::<u8>::new();
+    write_all(&mut out, &vals2)?;
+    assert_eq!(out, DUMP);
     Ok(())
 }
