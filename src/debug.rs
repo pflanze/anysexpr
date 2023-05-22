@@ -14,8 +14,8 @@ use num::BigInt;
 
 use crate::{value::{VValue, Atom, Parenkind}, number::R5RSNumber};
 
-fn symbol(s: &'static str) -> VValue {
-    VValue::Atom(Atom::Symbol(KString::from(s)))
+fn symbol(s: &str) -> VValue {
+    VValue::Atom(Atom::Symbol(KString::from_ref(s)))
 }
 
 fn listlike(
@@ -31,7 +31,7 @@ fn listlike(
     VValue::List(pk, false, vals2)
 }
 
-fn list2(symname: &'static str,
+fn list2(symname: &str,
          a: Atom) -> VValue {
     let mut vals : Vec<VValue> = Vec::new();
     vals.push(symbol(symname));
@@ -39,7 +39,7 @@ fn list2(symname: &'static str,
     VValue::List(Parenkind::Round, false, vals)
 }
 
-fn listn(symname: &'static str,
+fn listn(symname: &str,
          atoms: impl Iterator<Item=Atom>) -> VValue {
     let mut vals : Vec<VValue> = Vec::new();
     vals.push(symbol(symname));
