@@ -158,20 +158,30 @@ fn try_u32_to_char(code: u32) -> Result<char, ParseError> {
     }
 }
 
-fn try_io<T>(
-    o: Option<anyhow::Result<T>>,
-    error_pos: Pos
-) -> Result<Option<T>, ParseErrorWithPos> {
-    match o {
-        Some(r) => {
-            match r  {
-                Err(e) => Err(ParseError::IOError(e).at(error_pos)),
-                Ok(v) => Ok(Some(v))
+trait TransposeIoAt<V> {
+    fn transpose_io_at(
+        self,
+        error_pos: Pos
+    ) -> Result<Option<V>, ParseErrorWithPos>;
+}
+
+impl<T> TransposeIoAt<T> for Option<anyhow::Result<T>> {
+    fn transpose_io_at(
+        self,
+        error_pos: Pos
+    ) -> Result<Option<T>, ParseErrorWithPos> {
+        match self {
+            Some(r) => {
+                match r  {
+                    Err(e) => Err(ParseError::IOError(e).at(error_pos)),
+                    Ok(v) => Ok(Some(v))
+                }
             }
+            None => Ok(None)
         }
-        None => Ok(None)
     }
 }
+
 
 fn read_number(is_neg: bool, s: &str) -> Option<R5RSNumber> {
     let mut n: BigInt = 0.into();
@@ -265,33 +275,28 @@ fn read_hex_as_u32(
     let mut lastpos = codestartpos;
     let mut numdigits_seen = 0;
     loop {
-        if let Some(r) = cs.next() {
-            match r {
-                Err(e) => return Err(ParseError::IOError(e).at(lastpos)),
-                Ok((c, pos)) => {
-                    if let ReadMode::Delimiter(delim) = readmode {
-                        if c == delim {
-                            return Ok((res, try_io(cs.next(), pos)?))
-                        } else if numdigits_seen == numdigits {
-                            return Err(ParseError::TooManyDigits.at(pos))
-                        }
-                    } else if numdigits_seen == numdigits {
-                        return Ok((res, Some((c, pos))))
-                    }
-                    if let Some(n) = parse_hexdigit(c as u32) {
-                        res *= 16;
-                        res += n;
-                        numdigits_seen += 1;
-                        lastpos = pos;
-                    } else {
-                        return
-                            if readmode == ReadMode::FlexLen {
-                                Ok((res, Some((c, pos))))
-                            } else {
-                                Err(ParseError::NonHexDigit(c).at(pos))
-                            };
-                    }
+        if let Some((c, pos)) = cs.next().transpose_io_at(lastpos)? {
+            if let ReadMode::Delimiter(delim) = readmode {
+                if c == delim {
+                    return Ok((res, cs.next().transpose_io_at(pos)?))
+                } else if numdigits_seen == numdigits {
+                    return Err(ParseError::TooManyDigits.at(pos))
                 }
+            } else if numdigits_seen == numdigits {
+                return Ok((res, Some((c, pos))))
+            }
+            if let Some(n) = parse_hexdigit(c as u32) {
+                res *= 16;
+                res += n;
+                numdigits_seen += 1;
+                lastpos = pos;
+            } else {
+                return
+                    if readmode == ReadMode::FlexLen {
+                        Ok((res, Some((c, pos))))
+                    } else {
+                        Err(ParseError::NonHexDigit(c).at(pos))
+                    };
             }
         } else {
             return Err(ParseError::UnexpectedEOFInString(outerdelimiter).at(lastpos));
@@ -328,22 +333,17 @@ fn read_octalescape_char(
         let mut lastpos = pos;
         let mut i = 1; // we have 1 character already
         loop {
-            if let Some(r) = cs.next() {
-                match r {
-                    Err(e) => return Err(ParseError::IOError(e).at(lastpos)),
-                    Ok((c, pos)) => {
-                        if i < 3 {
-                            if let Some(d) = parse_octaldigit(c as u32) {
-                                n = n * 8 + d;
-                                lastpos = pos;
-                                i += 1;
-                            } else {
-                                return finish(n, Some((c, pos)))
-                            } 
-                        } else {
-                            return finish(n, Some((c, pos)))
-                        }
-                    }
+            if let Some((c, pos)) = cs.next().transpose_io_at(lastpos)? {
+                if i < 3 {
+                    if let Some(d) = parse_octaldigit(c as u32) {
+                        n = n * 8 + d;
+                        lastpos = pos;
+                        i += 1;
+                    } else {
+                        return finish(n, Some((c, pos)))
+                    } 
+                } else {
+                    return finish(n, Some((c, pos)))
                 }
             } else {
                 return finish(n, None)
@@ -373,13 +373,8 @@ fn read_delimited(
             (c, pos) = cp;
             maybe_next_c_pos = None;
         } else {
-            if let Some(r) = cs.next() {
-                match r {
-                    Err(e) => return Err(ParseError::IOError(e).at(lastpos)),
-                    Ok(cp) => {
-                        (c, pos) = cp;
-                    }
-                }
+            if let Some(cp) = cs.next().transpose_io_at(lastpos)? {
+                (c, pos) = cp;
             } else {
                 return Err(ParseError::UnexpectedEOFInString(delimiter).at(startpos));
             }
@@ -523,20 +518,15 @@ fn read_while(
     let mut lastc = c;
     let mut lastpos = startpos;
     loop {
-        if let Some(r) = cs.next() {
-            match r {
-                Err(e) => return Err(ParseError::IOError(e).at(lastpos)),
-                Ok((c, pos)) => {
-                    lastpos = pos;
-                    if accepted(c) {
-                        if let Some(ref mut out) = opt_out {
-                            out.push(c);
-                        }
-                        lastc = Some(c);
-                    } else {
-                        return Ok((lastc, Some((c, pos))));
-                    }
+        if let Some((c, pos)) = cs.next().transpose_io_at(lastpos)? {
+            lastpos = pos;
+            if accepted(c) {
+                if let Some(ref mut out) = opt_out {
+                    out.push(c);
                 }
+                lastc = Some(c);
+            } else {
+                return Ok((lastc, Some((c, pos))));
             }
         } else {
             return Ok((lastc, None))

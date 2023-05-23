@@ -171,8 +171,7 @@ fn slurp(
             return Ok((v, None));
         }
     };        
-    while let Some(te) = ts.next() {
-        let TokenWithPos(t, pos) = te?;
+    while let Some(TokenWithPos(t, pos)) = ts.next().transpose()? {
         match t {
             Token::Dot => {
                 if let Some((oldpos, _)) = seen_dot {
