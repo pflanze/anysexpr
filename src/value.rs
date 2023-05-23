@@ -186,3 +186,14 @@ impl std::fmt::Display for VValue {
     }
 }
 
+
+/// Easily create a symbol
+pub fn symbol(s: &str) -> VValue {
+    VValue::Atom(Atom::Symbol(KString::from_ref(s)))
+}
+
+/// Easily create a list with two entries
+pub fn list2(a: VValue, b: VValue) -> VValue {
+    VValue::List(Parenkind::Round, false, vec![a, b])
+}
+

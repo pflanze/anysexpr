@@ -9,14 +9,9 @@
 
 //! Utilities for debugging the anysexpr library
 
-use kstring::KString;
 use num::BigInt;
 
-use crate::{value::{VValue, Atom, Parenkind}, number::R5RSNumber};
-
-fn symbol(s: &str) -> VValue {
-    VValue::Atom(Atom::Symbol(KString::from_ref(s)))
-}
+use crate::{value::{VValue, Atom, Parenkind, symbol}, number::R5RSNumber};
 
 fn listlike(
     pk: Parenkind,
