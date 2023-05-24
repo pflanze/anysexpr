@@ -14,7 +14,7 @@ use anysexpr::parse::{Token, parse, TokenWithPos};
 use anysexpr::settings::{Settings, Modes, GAMBIT_FORMAT};
 use anysexpr::buffered_chars::buffered_chars;
 use clap::Parser as ClapParser;
-use std::io::{stdout, BufWriter};
+use std::io::{stdout, BufWriter, Write};
 use std::path::PathBuf;
 use anyhow::{Result, bail};
 
@@ -32,7 +32,8 @@ struct Args {
     /// Print the parsed data
     #[clap(long, value_parser)]
     print: bool,
-    /// Write a debugging dump of the parsed data (only works with --ast)
+    /// Write a debugging dump of the parsed data (with --ast, as
+    /// s-expression, without --ast, using Debug instead of Display)
     #[clap(long, value_parser)]
     dump: bool,
     /// Show the token position (only with --print and no --ast)
@@ -71,6 +72,7 @@ fn main() -> Result<()> {
         // Read through the token stream of the file contents and just
         // do some bookkeeping and optionally print the tokens.
 
+        let mut out = BufWriter::new(stdout());
         let fh = std::fs::File::open(&args.input_path)?;
         let mut cs = buffered_chars(fh);
         let settings = Settings {
@@ -116,12 +118,16 @@ fn main() -> Result<()> {
                     indentlevel = parenstack.len();
                 }
             }
-            if args.print {
+            if args.print || args.dump {
                 if let Some(indent) = indentstr(indentlevel) {
+                    out.write_all(indent.as_bytes())?;
                     if args.pos {
-                        println!("{indent}{pos} {token}");
+                        write!(out, "{pos} ")?;
+                    }
+                    if args.dump {
+                        write!(out, "{token:?}\n")?;
                     } else {
-                        println!("{indent}{token}");
+                        write!(out, "{token}\n")?;
                     }
                 } else {
                     bail!("lists nested too deeply at {:?}{}", args.input_path, pos)
