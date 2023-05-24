@@ -88,13 +88,13 @@ pub fn maybe_open_close(c: char) -> Option<Token> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum CommentStyle {
     Singleline(u8), // ;  ;;  ;;;  etc.
     // XXX todo: multiline, sexpr-comments
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     Atom(Atom),
     Dot,
@@ -542,10 +542,12 @@ fn char2special_token(c: char) -> Option<Token> {
         '`' => Some(Token::Quasiquote),
         ',' => Some(Token::Unquote),
         // Not adding Dot here because '.' is also allowed as the
-        // start of symbols.
+        // start of symbols, and not adding UnquoteSplicing because
+        // it's two characters and the '@' *is* a valid symbol
+        // character.
         _ => None
     }
-}    
+}
 
 fn is_symbol_or_number_char(c: char) -> bool {
     c.is_whitespace() == false
@@ -780,6 +782,31 @@ pub fn parse<'s>(
                     }
                 }
             } else if let Some(t) = char2special_token(c) {
+                let t =
+                    if t == Token::Unquote {
+                        if let Some(r) = cs.next() {
+                            match r {
+                                Err(e) => {
+                                    co.yield_(Err(
+                                        ParseError::IOError(e).at(lastpos))).await;
+                                    return;
+                                }
+                                Ok(cp) => {
+                                    if cp.0 == '@' {
+                                        lastpos = cp.1;
+                                        Token::UnquoteSplicing
+                                    } else {
+                                        maybe_next_c_pos = Some(cp);
+                                        t
+                                    }
+                                }
+                            }
+                        } else {
+                            return
+                        }
+                    } else {
+                        t
+                    };
                 co.yield_(Ok(TokenWithPos(t, pos))).await;
             } else {
                 // Numbers, symbols, keywords, Dot
