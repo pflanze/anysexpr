@@ -1,3 +1,30 @@
+(define (read-all-expr port)
+  (let rec ()
+    (let ((expr (##read-expr-from-port port)))
+      (if (eof-object? expr)
+          '()
+          (cons expr (rec))))))
+
+(define (cj-desourcify x)
+  (let ((x (if (##source? x) (##source-code x) x)))
+    (cond ((pair? x)
+           (cons (cj-desourcify (car x))
+                 (cj-desourcify (cdr x))))
+          ((##vector? x)
+           (vector-map-1 cj-desourcify x))
+          ((box? x)
+           (box (cj-desourcify (unbox x))))
+          ;; XX more?
+          (else
+           x))))
+
+(define (position-line v)
+  (+ 1 (bitwise-and v 65535)))
+
+(define (position-column v)
+  (+ 1 (quotient v 65536)))
+
+
 (define (chars2atoms str)
   (map (lambda (c)
          (char->integer c))
@@ -23,9 +50,13 @@
         ((pair? v) `(improper-list ,@(map dump (improper-list->list v))))
         (else (error "dump: missing mapping for:" v))))
 
-(for-each pretty-print
-          (map dump
-               (call-with-input-file (list path: (getenv "input_file")
-                                           char-encoding: 'UTF-8)
-                 read-all)))
+(for-each (lambda (v)
+            (let* ((loc (##source-locat v))
+                   (pos (##locat-position loc))
+                   (line (position-line pos)))
+              (pretty-print `(line ,line)))
+            (pretty-print (dump (cj-desourcify v))))
+          (call-with-input-file (list path: (getenv "input_file")
+                                      char-encoding: 'UTF-8)
+            read-all-expr))
 (newline)
