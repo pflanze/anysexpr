@@ -17,7 +17,7 @@ use crate::context::{self, Context};
 use crate::parse::{Token, TokenWithPos, parse,
                    ParseError, ParseErrorWithPos};
 use crate::settings::{Settings, Modes, GAMBIT_FORMAT};
-use crate::value::{VValue, Parenkind};
+use crate::value::{VValue, Parenkind, symbol, list2};
 use crate::buffered_chars::buffered_chars;
 use std::fmt::{Formatter, Display, Debug};
 use std::io::{Read, Write};
@@ -39,6 +39,10 @@ pub enum ReadError {
     DotAlreadyAppeared(Pos),
     #[error("'.' without preceding item")]
     DotWithoutPrecedingItem,
+    #[error("'.' outside of list context")]
+    DotOutsideListContext,
+    #[error("improperly placed '.'")]
+    ImproperlyPlacedDot,
     #[error("nesting too deep")]
     NestingTooDeep,
     #[error("'{}' {1} expects '{}', got '{}'",
@@ -49,8 +53,9 @@ pub enum ReadError {
     #[error("premature EOF while expecting closing character '{}' for '{}'",
             .0.closing(), .0.opening())]
     PrematureEofExpectingClosingParen(Parenkind),
-    #[error("'.' outside of list context")]
-    DotOutsideListContext
+    #[error("missing expression after {0}")]
+    // MissingExpressionAfter(Token), // XX large because of Token, right?
+    MissingExpressionAfter(&'static str),
  }
 
 #[derive(Error, Debug)]
@@ -65,6 +70,19 @@ impl ReadError {
         ReadErrorWithPos {
             err: self,
             pos: p
+        }
+    }
+}
+
+trait At<T> {
+    fn at(self, p: Pos) -> Result<T, ReadErrorWithPos>;
+}
+
+impl<T> At<T> for Result<T, ReadError> {
+    fn at(self, p: Pos) -> Result<T, ReadErrorWithPos> {
+        match self {
+            Err(e) => Err(e.at(p)),
+            Ok(v) => Ok(v)
         }
     }
 }
@@ -143,82 +161,125 @@ fn rewp_add_file<T>(
     }
 }
 
+fn dec(fuel: u32) -> Result<u32, ReadError> {
+    if fuel == 0 {
+        return Err(ReadError::NestingTooDeep)
+    }
+    Ok(fuel - 1)
+}
+
+
+// Reads one expression. Returns None on EOF. Signals
+// ReadError::UnexpectedClosingParen if there's no expression left in
+// the current level.
+fn iterator_read(
+    ts: &mut impl Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>,
+    depth_fuel: u32,
+) -> Result<Option<VValue>, ReadErrorWithPos>
+{
+    let get_prefixing =
+        |ts, quotepos, symname| -> Result<Option<VValue>, ReadErrorWithPos> {
+            if let Some(expr) = iterator_read(ts, dec(depth_fuel).at(quotepos)?)? {
+                Ok(Some(list2(symbol(symname), expr)))
+            } else {
+                Err(ReadError::MissingExpressionAfter(symname).at(quotepos))
+            }
+        };
+    while let Some(TokenWithPos(t, pos)) = ts.next().transpose()? {
+        match t {
+            Token::Dot => {
+                return Err(ReadError::ImproperlyPlacedDot.at(pos))
+            }
+            Token::Quote => {
+                return get_prefixing(ts, pos, "quote")
+            }
+            Token::Quasiquote => {
+                return get_prefixing(ts, pos, "quasiquote")
+            }
+            Token::Unquote => {
+                return get_prefixing(ts, pos, "unquote")
+            }
+            Token::UnquoteSplicing => {
+                return get_prefixing(ts, pos, "unquote-splicing")
+            }
+            Token::Whitespace(_) => {}
+            Token::Comment(_, _) => {}
+            Token::Open(pk) => {
+                let (e, maybedot) = iterator_read_all(ts, Some((pk, pos)), dec(depth_fuel).at(pos)?)?;
+                return Ok(Some(VValue::List(pk, maybedot.is_some(), e)))
+            }
+            Token::Close(pk) => {
+                return Err(ReadError::UnexpectedClosingParen(pk).at(pos))
+            }
+            Token::Atom(a) => {
+                return Ok(Some(VValue::Atom(a)));
+            }
+        }        
+    }
+    Ok(None)
+}
 
 // Read and fill a vector of values up to the expected end paren, and
 // return the vector and the position of a Dot, if any. Checking
 // whether a dot is allowed is left to the caller. The check whether
 // the right number of items before and after the dot appeared is done
-// by slurp.
-fn slurp(
-    ts: &mut impl Iterator<Item = Result<TokenWithPos,
-                                         ParseErrorWithPos>>,
+// by iterator_read_all.
+fn iterator_read_all(
+    ts: &mut impl Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>,
     opt_parenkind: Option<(Parenkind, Pos)>,
     depth_fuel: u32,
 ) -> Result<(Vec<VValue>, Option<Pos>), ReadErrorWithPos>
 {
-    let mut v = Vec::new();
+    let mut vs = Vec::new();
     let mut seen_dot: Option<(Pos, usize)> = None;
-    let result = |seen_dot, v: Vec<VValue>| {
+    let result = |seen_dot, vs: Vec<VValue>| {
         if let Some((dotpos, i)) = seen_dot {
-            let n_items_after_dot = v.len() - i;
+            let n_items_after_dot = vs.len() - i;
             match n_items_after_dot {
-                1 => return Ok((v, Some(dotpos))),
+                1 => return Ok((vs, Some(dotpos))),
                 0 => Err(ReadError::MissingItemAfterDot.at(dotpos)),
                 _ => Err(ReadError::ExpectingOneItemAfterDot(n_items_after_dot)
                          .at(dotpos)),
             }
         } else {
-            return Ok((v, None));
+            return Ok((vs, None));
         }
-    };        
-    while let Some(TokenWithPos(t, pos)) = ts.next().transpose()? {
-        match t {
-            Token::Dot => {
-                if let Some((oldpos, _)) = seen_dot {
-                    return Err(ReadError::DotAlreadyAppeared(oldpos).at(pos))
-                } else {
-                    let i = v.len();
-                    if i == 0 {
-                        return Err(ReadError::DotWithoutPrecedingItem.at(pos))
+    };
+    while let Some(r) = iterator_read(ts, depth_fuel).transpose() {
+        match r {
+            Err(ep) => {
+                let ReadErrorWithPos { err, pos } = &ep;
+                match err {
+                    ReadError::IO(_) => return Err(ep),
+                    ReadError::ImproperlyPlacedDot => {
+                        if let Some((oldpos, _)) = seen_dot {
+                            return Err(ReadError::DotAlreadyAppeared(oldpos).at(*pos))
+                        } else {
+                            let i = vs.len();
+                            if i == 0 {
+                                return Err(ReadError::DotWithoutPrecedingItem.at(*pos))
+                            }
+                            seen_dot = Some((*pos, i));
+                        }
                     }
-                    seen_dot = Some((pos, i));
-                }
-            }
-            Token::Quote => {
-                todo!()
-            }
-            Token::Quasiquote => {
-                todo!()
-            }
-            Token::Unquote => {
-                todo!()
-            }
-            Token::Whitespace(_) => {}
-            Token::Comment(_, _) => {}
-            Token::Open(pk) => {
-                if depth_fuel == 0 {
-                    return Err(ReadError::NestingTooDeep.at(pos))
-                }
-                let (e, maybedot) = slurp(ts, Some((pk, pos)), depth_fuel - 1)?;
-                v.push(VValue::List(pk,
-                                    maybedot.is_some(),
-                                    e));
-            }
-            Token::Close(pk) => {
-                if let Some((parenkind, startpos)) = opt_parenkind {
-                    if pk == parenkind {
-                        return result(seen_dot, v)
-                    } else {
-                        return Err(ReadError::ParenMismatch(parenkind, startpos, pk)
-                                   .at(pos))
+                    ReadError::UnexpectedClosingParen(pk) => {
+                        if let Some((parenkind, startpos)) = opt_parenkind {
+                            if *pk == parenkind {
+                                return result(seen_dot, vs)
+                            } else {
+                                return Err(ReadError::ParenMismatch(
+                                    parenkind, startpos, *pk)
+                                           .at(*pos))
+                            }
+                        } else {
+                            return Err(ep)
+                        }
                     }
-                } else {
-                    return Err(ReadError::UnexpectedClosingParen(pk)
-                               .at(pos))
+                    _ => return Err(ep)
                 }
             }
-            Token::Atom(a) => {
-                v.push(VValue::Atom(a));
+            Ok(v) => {
+                vs.push(v);
             }
         }
     }
@@ -226,17 +287,18 @@ fn slurp(
         Err(ReadError::PrematureEofExpectingClosingParen(parenkind)
             .at(startpos))
     } else {
-        result(seen_dot, v)
+        result(seen_dot, vs)
     }
 }
 
-/// Read (deserialize) the contents of an input stream to a sequence
-/// of [VValue](VValue).
-pub fn read_all(
+/// Read a single expression from an input stream. Returns None on
+/// EOF. Signals ReadError::UnexpectedClosingParen if there's no
+/// expression left in the current level.
+pub fn read(
     fh: impl Read,
-) -> Result<Vec<VValue>, ReadErrorWithPos>
+) -> Result<Option<VValue>, ReadErrorWithPos>
 {
-    let mut cs = buffered_chars(fh);
+    let mut cs = buffered_chars(fh); // XXX must not buffer *here*!
     let settings = Settings {
         format: &GAMBIT_FORMAT,
         modes: &Modes {
@@ -247,7 +309,27 @@ pub fn read_all(
     let depth_fuel = 500;
     // ^ the limit with default settings on Linux is around 1200
     let mut ts = parse(&mut cs, &settings);
-    let (v, maybedot) = slurp(
+    iterator_read(&mut ts, depth_fuel)
+}
+
+/// Read (deserialize) all of an input stream to a sequence
+/// of [VValue](VValue).
+pub fn read_all(
+    fh: impl Read,
+) -> Result<Vec<VValue>, ReadErrorWithPos>
+{
+    let mut cs = buffered_chars(fh); // XX should not buffer here!
+    let settings = Settings {
+        format: &GAMBIT_FORMAT,
+        modes: &Modes {
+            retain_whitespace: false,
+            retain_comments: false,
+        },
+    };
+    let depth_fuel = 500;
+    // ^ the limit with default settings on Linux is around 1200
+    let mut ts = parse(&mut cs, &settings);
+    let (v, maybedot) = iterator_read_all(
         &mut ts,
         None,
         depth_fuel)?;
