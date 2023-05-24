@@ -24,7 +24,7 @@ This is an S-Expression parser and formatter with the following goals:
 * (Perhaps) be usable on microcontrollers (small code, no-std?).
 
 This is an early alpha version. Even some basics are unfinished
-(inexact and complex numbers, quoting sugar, some comment styles, ..).
+(inexact and complex numbers, some comment styles, ..).
 The author is quite new to Rust. He is aware of the huge list of API
 guideline entries not currently being followed, and welcomes help in
 that area as well as others. The author is also quite invested in
@@ -38,7 +38,6 @@ See [examples/main.rs](examples/main.rs).
 
 * string escape features on printing
 * inexact and complex numbers
-* implement quote/quasiquote/unquote parsing
 * handle `#| |#` and `#;` style comments
 * Guile style keywords `#:foo`
 * performance tuning?, perhaps do not use genawaiter?
