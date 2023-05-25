@@ -1,67 +1,68 @@
+(line 2)
 (list (symbol 97) (symbol 98) (symbol 99))
-
+(line 3)
 (|improper-list| (number 1) (number 2) (number 3) (number 4))
-
+(line 4)
 (|improper-list| (string 97) (string 98))
-
+(line 5)
 (list (string 97) (symbol 46 98))
-
+(line 10)
 (string 34)
-
+(line 11)
 (string 77 111 116 246 114 104 101 97 100)
-
+(line 12)
 (string 97 10 98)
-
+(line 13)
 (string 10)
-
+(line 14)
 (string 0 97 98)
-
+(line 16)
 (string 74565 59 97)
-
+(line 21)
 (string 4660 53)
-
+(line 24)
 (string 109567 101)
-
+(line 26)
 (symbol 49 50 51 55 54 97 98 99)
-
+(line 27)
 (number -12345678901234567890123456789012345678901234567890)
-
+(line 28)
 (number -4115226300411522630041152263004115226300411522630/2746165973945729209457084390413290721)
-
+(line 30)
 (symbol 49 50 51 52 53 54 55 56 57 48 49 50 51 52 53 54 55 56 57 48 49 50 51 52 53 54 55 56 57 48 49 50 51 52 53 54 55 56 57 48 49 50 51 52 53 54 55 56 57 48 47 45 50)
-
+(line 31)
 (number -617/2839)
-
+(line 32)
 (number 617/2839)
-
+(line 34)
 true
-
+(line 34)
 false
-
+(line 37)
 (|improper-list| false true false)
-
+(line 38)
 (list false true (symbol 46 35 102))
-
+(line 40)
 (|integer->char| 97)
-
+(line 41)
 (list (|integer->char| 10))
-
+(line 43)
 (|integer->char| 4660)
-
+(line 45)
 (|integer->char| 4660)
-
+(line 47)
 (|integer->char| 4660)
-
+(line 55)
 (list (symbol 113 117 111 116 101) (symbol 104 105))
-
+(line 56)
 (list (symbol 113 117 111 116 101) (list (symbol 97) (list (symbol 113 117 111 116 101) (symbol 98)) (symbol 99)))
-
+(line 57)
 (list (symbol 113 117 111 116 101) (|improper-list| (symbol 97) (list (symbol 113 117 111 116 101) (symbol 98)) (symbol 99)))
-
+(line 59)
 (list (symbol 97) (list (symbol 113 117 111 116 101) (|improper-list| (symbol 98) (symbol 99))))
-
+(line 60)
 (|improper-list| (symbol 97) (list (symbol 113 117 111 116 101) (symbol 98)) (list (symbol 113 117 111 116 101) (symbol 99)))
-
+(line 62)
 (list (symbol 113 117 97 115 105 113 117 111 116 101) (list (symbol 97) (list (symbol 117 110 113 117 111 116 101 45 115 112 108 105 99 105 110 103) (symbol 108)) (list (symbol 113 117 111 116 101) (list (symbol 117 110 113 117 111 116 101) (symbol 102 111 111))) (list (symbol 113 117 111 116 101) (list (symbol 113 117 111 116 101) (list (symbol 113 117 111 116 101) (symbol 98 97 114))))))
-
+(line 64)
 (list (symbol 99 118) (list (symbol 101 110 116 114 121) (keyword2 119 104 101 110) (string 50 48 49 54 8211 50 48 49 56) (keyword2 116 105 116 108 101) (string 32 83 111 102 116 119 97 114 101 10 9 68 101 118 101 108 111 112 101 114 32) (keyword2 98 111 100 121) (string 10 42 32 83 111 109 101 116 104 105 110 103 32 99 111 109 112 108 101 116 101 108 121 32 100 105 102 102 101 114 101 110 116 10)) (list (symbol 101 110 116 114 121) (keyword2 119 104 101 110) (string 50 48 49 48 8211 50 48 49 54) (keyword2 116 105 116 108 101) (string 80 105 110 107 32 80 97 110 116 104 101 114 32 105 115 32 118 101 114 121 32 102 105 116 116 105 110 103) (keyword2 116 105 116 108 101 50) (string 80 105 110 107 32 80 97 110 116 104 101 114 32 105 115 32 118 101 114 121 32 102 105 116 116 105 110 103) (keyword2 116 105 116 108 101 51) (string 80 105 110 107 32 80 97 110 116 104 101 114 32 105 115 32 118 101 114 121 32 102 105 116 116 105 110 103) (keyword2 98 111 100 121) (string 10 42 32 73 109 112 108 101 109 101 110 116 101 100 32 98 97 122 97 97 114 10 42 32 68 105 100 32 118 111 100 111 111 10)))
