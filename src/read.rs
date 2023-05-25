@@ -349,16 +349,36 @@ pub fn read_file(path: &Path) -> Result<Vec<VValueWithPos>, ReadErrorWithLocatio
     Ok(v)
 }
 
+/// Write (serialize) a [VValue](VValue) or
+/// [VValueWithPos](VValueWithPos) to an output stream.
+pub fn write<'t, T: Display + 't>(
+    out: &mut impl Write,
+    val: &'t T
+) -> Result<(), std::io::Error> {
+    write!(out, "{}", val)
+}
+
+/// Write (serialize) a [VValue](VValue) or
+/// [VValueWithPos](VValueWithPos) and a newline to an output stream.
+pub fn writeln<'t, T: Display + 't>(
+    out: &mut impl Write,
+    val: &'t T
+) -> Result<(), std::io::Error> {
+    write!(out, "{}\n", val)
+}
+
 /// Write (serialize) a sequence of [VValue](VValue) or
 /// [VValueWithPos](VValueWithPos) to an output stream.
 pub fn write_all<'t, T: Display + 't>(
-    out: impl Write,
+    out: &mut impl Write,
     vals: impl IntoIterator<Item = &'t T>
 ) -> Result<(), std::io::Error> {
-    let mut out = out; // for `File`
     let mut seen_item = false;
     for v in vals.into_iter() {
-        write!(out, "{}{}\n", if seen_item {"\n"} else {""}, v)?;
+        if seen_item {
+            write!(out, "\n")?;
+        }
+        writeln(out, v)?;
         seen_item = true;
     }
     Ok(())
@@ -367,6 +387,6 @@ pub fn write_all<'t, T: Display + 't>(
 /// Write (serialize) a sequence of [VValue](VValue) to a file.
 pub fn write_file<'t>(path: &Path, vals: impl IntoIterator<Item = &'t VValue>)
                       -> Result<(), std::io::Error> {
-    write_all(File::open(path)?, vals)
+    write_all(&mut File::open(path)?, vals)
 }
 
