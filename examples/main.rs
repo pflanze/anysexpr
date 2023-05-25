@@ -8,7 +8,7 @@
 // except according to those terms.
 
 use anysexpr::pos::Pos;
-use anysexpr::value::{VValue, Parenkind};
+use anysexpr::value::{Parenkind, VValueWithPos};
 use anysexpr::read::{read_file, write_all};
 use anysexpr::parse::{Token, parse, TokenWithPos};
 use anysexpr::settings::{Settings, Modes, GAMBIT_FORMAT};
@@ -58,12 +58,12 @@ fn main() -> Result<()> {
         // Slurp in the whole file contents as a list of trees, then
         // optionally print those.
         
-        let vals: Vec<VValue> = read_file(&args.input_path)?;
+        let vals: Vec<VValueWithPos> = read_file(&args.input_path)?;
         if args.print {
             write_all(BufWriter::new(stdout()), &vals)?;
         }
         if args.dump {
-            let vals2 : Vec<VValue> = vals.iter().map(|v| v.dump()).collect();
+            let vals2 : Vec<VValueWithPos> = vals.iter().map(|v| v.dump()).collect();
             write_all(BufWriter::new(stdout()), &vals2)?;
         }
 

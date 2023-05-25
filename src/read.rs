@@ -17,7 +17,7 @@ use crate::context::{self, Context};
 use crate::parse::{Token, TokenWithPos, parse,
                    ParseError, ParseErrorWithPos};
 use crate::settings::{Settings, Modes, GAMBIT_FORMAT};
-use crate::value::{VValue, Parenkind, symbol, list2};
+use crate::value::{VValue, Parenkind, symbol, list2, VValueWithPos};
 use crate::buffered_chars::buffered_chars;
 use std::fmt::{Formatter, Display, Debug};
 use std::io::{Read, Write};
@@ -175,12 +175,12 @@ fn dec(fuel: u32) -> Result<u32, ReadError> {
 fn iterator_read(
     ts: &mut impl Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>,
     depth_fuel: u32,
-) -> Result<Option<VValue>, ReadErrorWithPos>
+) -> Result<Option<VValueWithPos>, ReadErrorWithPos>
 {
     let get_prefixing =
-        |ts, quotepos, symname| -> Result<Option<VValue>, ReadErrorWithPos> {
+        |ts, quotepos, symname| -> Result<Option<VValueWithPos>, ReadErrorWithPos> {
             if let Some(expr) = iterator_read(ts, dec(depth_fuel).at(quotepos)?)? {
-                Ok(Some(list2(symbol(symname), expr)))
+                Ok(Some(list2(symbol(symname).at(quotepos), expr).at(quotepos)))
             } else {
                 Err(ReadError::MissingExpressionAfter(symname).at(quotepos))
             }
@@ -205,14 +205,15 @@ fn iterator_read(
             Token::Whitespace(_) => {}
             Token::Comment(_, _) => {}
             Token::Open(pk) => {
-                let (e, maybedot) = iterator_read_all(ts, Some((pk, pos)), dec(depth_fuel).at(pos)?)?;
-                return Ok(Some(VValue::List(pk, maybedot.is_some(), e)))
+                let (e, maybedot) =
+                    iterator_read_all(ts, Some((pk, pos)), dec(depth_fuel).at(pos)?)?;
+                return Ok(Some(VValue::List(pk, maybedot.is_some(), e).at(pos)))
             }
             Token::Close(pk) => {
                 return Err(ReadError::UnexpectedClosingParen(pk).at(pos))
             }
             Token::Atom(a) => {
-                return Ok(Some(VValue::Atom(a)));
+                return Ok(Some(VValue::Atom(a).at(pos)));
             }
         }        
     }
@@ -228,11 +229,11 @@ fn iterator_read_all(
     ts: &mut impl Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>,
     opt_parenkind: Option<(Parenkind, Pos)>,
     depth_fuel: u32,
-) -> Result<(Vec<VValue>, Option<Pos>), ReadErrorWithPos>
+) -> Result<(Vec<VValueWithPos>, Option<Pos>), ReadErrorWithPos>
 {
     let mut vs = Vec::new();
     let mut seen_dot: Option<(Pos, usize)> = None;
-    let result = |seen_dot, vs: Vec<VValue>| {
+    let result = |seen_dot, vs: Vec<VValueWithPos>| {
         if let Some((dotpos, i)) = seen_dot {
             let n_items_after_dot = vs.len() - i;
             match n_items_after_dot {
@@ -296,7 +297,7 @@ fn iterator_read_all(
 /// expression left in the current level.
 pub fn read(
     fh: impl Read,
-) -> Result<Option<VValue>, ReadErrorWithPos>
+) -> Result<Option<VValueWithPos>, ReadErrorWithPos>
 {
     let mut cs = buffered_chars(fh); // XXX must not buffer *here*!
     let settings = Settings {
@@ -313,10 +314,10 @@ pub fn read(
 }
 
 /// Read (deserialize) all of an input stream to a sequence
-/// of [VValue](VValue).
+/// of [VValueWithPos](VValueWithPos).
 pub fn read_all(
     fh: impl Read,
-) -> Result<Vec<VValue>, ReadErrorWithPos>
+) -> Result<Vec<VValueWithPos>, ReadErrorWithPos>
 {
     let mut cs = buffered_chars(fh); // XX should not buffer here!
     let settings = Settings {
@@ -341,18 +342,18 @@ pub fn read_all(
 }
 
 /// Read (deserialize) the contents of a file to a sequence of
-/// [VValue](VValue).
-pub fn read_file(path: &Path) -> Result<Vec<VValue>, ReadErrorWithLocation> {
+/// [VValueWithPos](VValueWithPos).
+pub fn read_file(path: &Path) -> Result<Vec<VValueWithPos>, ReadErrorWithLocation> {
     let fh = io_add_file(File::open(path), path)?;
     let v = rewp_add_file(read_all(fh), path)?;
     Ok(v)
 }
 
-/// Write (serialize) a sequence of [VValue](VValue) to an output
-/// stream.
-pub fn write_all<'t>(
+/// Write (serialize) a sequence of [VValue](VValue) or
+/// [VValueWithPos](VValueWithPos) to an output stream.
+pub fn write_all<'t, T: Display + 't>(
     out: impl Write,
-    vals: impl IntoIterator<Item = &'t VValue>
+    vals: impl IntoIterator<Item = &'t T>
 ) -> Result<(), std::io::Error> {
     let mut out = out; // for `File`
     let mut seen_item = false;

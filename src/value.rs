@@ -13,7 +13,7 @@
 //! lists implemented using Rust vectors. [VValue](VValue) can
 //! represent improper lists, but no cycles.
 
-use crate::number::R5RSNumber;
+use crate::{number::R5RSNumber, pos::Pos};
 use std::fmt::Write;
 use kstring::KString;
 
@@ -151,11 +151,12 @@ impl Parenkind {
     }
 }
 
-// Vec-based version of values
+// Vec-based version of values; for now, hard-coded to contain
+// VValueWithPos where recursion is used.
 #[derive(Debug)]
 pub enum VValue {
     Atom(Atom),
-    List(Parenkind, bool, Vec<VValue>), // bool: true = improper list
+    List(Parenkind, bool, Vec<VValueWithPos>), // bool: true = improper list
 }
 
 impl std::fmt::Display for VValue {
@@ -186,6 +187,21 @@ impl std::fmt::Display for VValue {
     }
 }
 
+#[derive(Debug)]
+pub struct VValueWithPos(pub VValue, pub Pos);
+
+impl std::fmt::Display for VValueWithPos {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>)
+           -> Result<(), std::fmt::Error> {
+        self.0.fmt(f)
+    }
+}
+
+impl VValue {
+    pub fn at(self, p: Pos) -> VValueWithPos {
+        VValueWithPos(self, p)
+    }
+}
 
 /// Easily create a symbol
 pub fn symbol(s: &str) -> VValue {
@@ -193,7 +209,7 @@ pub fn symbol(s: &str) -> VValue {
 }
 
 /// Easily create a list with two entries
-pub fn list2(a: VValue, b: VValue) -> VValue {
+pub fn list2(a: VValueWithPos, b: VValueWithPos) -> VValue {
     VValue::List(Parenkind::Round, false, vec![a, b])
 }
 

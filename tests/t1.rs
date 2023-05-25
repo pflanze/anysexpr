@@ -8,7 +8,7 @@
 // except according to those terms.
 
 use anyhow::Result;
-use anysexpr::{read::{read_all, write_all}, value::VValue};
+use anysexpr::{read::{read_all, write_all}, value::VValueWithPos};
 
 const INPUT: &[u8] = include_bytes!("t-input.scm");
 const WRITE: &[u8] = include_bytes!("t-write.scm");
@@ -26,7 +26,7 @@ fn roundtrip1() -> Result<()> {
 #[test]
 fn dump() -> Result<()> {
     let vals = read_all(INPUT)?;
-    let vals2 : Vec<VValue> = vals.iter().map(|v| v.dump()).collect();
+    let vals2 : Vec<VValueWithPos> = vals.iter().map(|v| v.dump()).collect();
     let mut out = Vec::<u8>::new();
     write_all(&mut out, &vals2)?;
     assert_eq!(out, DUMP);

@@ -11,37 +11,44 @@
 
 use num::BigInt;
 
-use crate::{value::{VValue, Atom, Parenkind, symbol}, number::R5RSNumber};
+use crate::{value::{VValue, Atom, Parenkind, symbol, VValueWithPos}, number::R5RSNumber, pos::Pos};
 
 fn listlike(
     pk: Parenkind,
     improper: bool,
-    vals: Vec<VValue>
-) -> VValue {
-    let mut vals2 : Vec<VValue> = Vec::new();
-    vals2.push(symbol(if improper {"improper-list"} else {"list"}));
+    vals: Vec<VValueWithPos>,
+    pos: Pos
+) -> VValueWithPos {
+    let mut vals2 : Vec<VValueWithPos> = Vec::new();
+    vals2.push(symbol(if improper {"improper-list"} else {"list"}).at(pos));
     for v in vals {
         vals2.push(v);
     }
-    VValue::List(pk, false, vals2)
+    VValue::List(pk, false, vals2).at(pos)
 }
 
-fn list2(symname: &str,
-         a: Atom) -> VValue {
-    let mut vals : Vec<VValue> = Vec::new();
-    vals.push(symbol(symname));
-    vals.push(VValue::Atom(a));
-    VValue::List(Parenkind::Round, false, vals)
+fn list2(
+    symname: &str,
+    a: Atom,
+    pos: Pos,
+) -> VValueWithPos {
+    let mut vals : Vec<VValueWithPos> = Vec::new();
+    vals.push(symbol(symname).at(pos));
+    vals.push(VValue::Atom(a).at(pos));
+    VValue::List(Parenkind::Round, false, vals).at(pos)
 }
 
-fn listn(symname: &str,
-         atoms: impl Iterator<Item=Atom>) -> VValue {
-    let mut vals : Vec<VValue> = Vec::new();
-    vals.push(symbol(symname));
+fn listn(
+    symname: &str,
+    atoms: impl Iterator<Item=Atom>,
+    pos: Pos
+) -> VValueWithPos {
+    let mut vals : Vec<VValueWithPos> = Vec::new();
+    vals.push(symbol(symname).at(pos));
     for a in atoms {
-        vals.push(VValue::Atom(a));
+        vals.push(VValue::Atom(a).at(pos)); // XX huh losing information here
     }
-    VValue::List(Parenkind::Round, false, vals)
+    VValue::List(Parenkind::Round, false, vals).at(pos)
 }
 
 fn integer(n: u32) -> Atom {
@@ -52,21 +59,24 @@ fn chars2atoms(cs: impl Iterator<Item=char>) -> impl Iterator<Item=Atom> {
     cs.map(|c| integer(c as u32))
 }
 
-impl VValue {
-    pub fn dump(&self) -> VValue {
-        match self {
+impl VValueWithPos {
+    pub fn dump(&self) -> VValueWithPos {
+        let VValueWithPos(val, pos) = self;
+        match val {
             VValue::Atom(a) => match a {
-                Atom::Bool(b) => if *b { symbol("true") } else { symbol("false") },
-                Atom::Char(c) => list2("integer->char", integer(*c as u32)),
-                Atom::Keyword1(s) => listn("keyword1", chars2atoms(s.chars())),
-                Atom::Keyword2(s) => listn("keyword2", chars2atoms(s.chars())),
-                Atom::String(s) => listn("string", chars2atoms(s.chars())),
-                Atom::Symbol(s) => listn("symbol", chars2atoms(s.chars())),
-                Atom::Number(_) => list2("number", a.clone()), //X ?
+                Atom::Bool(b) =>
+                    symbol(if *b { "true" } else { "false" }).at(*pos),
+                Atom::Char(c) => list2("integer->char", integer(*c as u32), *pos),
+                Atom::Keyword1(s) => listn("keyword1", chars2atoms(s.chars()), *pos),
+                Atom::Keyword2(s) => listn("keyword2", chars2atoms(s.chars()), *pos),
+                Atom::String(s) => listn("string", chars2atoms(s.chars()), *pos),
+                Atom::Symbol(s) => listn("symbol", chars2atoms(s.chars()), *pos),
+                Atom::Number(_) => list2("number", a.clone(), *pos), //X ?
             }
             VValue::List(pk, improper, vals) => {
-                listlike(*pk, *improper, vals.iter().map(|v| v.dump()).collect())
+                listlike(*pk, *improper, vals.iter().map(|v| v.dump()).collect(), *pos)
             }
         }
     }
 }
+
