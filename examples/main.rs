@@ -9,7 +9,7 @@
 
 use anysexpr::pos::Pos;
 use anysexpr::value::{Parenkind, VValueWithPos};
-use anysexpr::read::{read_file, write_all};
+use anysexpr::read::{read_file, write_all, writeln};
 use anysexpr::parse::{Token, parse, TokenWithPos};
 use anysexpr::settings::{Settings, Modes, GAMBIT_FORMAT};
 use anysexpr::buffered_chars::buffered_chars;
@@ -57,14 +57,17 @@ fn main() -> Result<()> {
 
         // Slurp in the whole file contents as a list of trees, then
         // optionally print those.
-        
+        let mut out = BufWriter::new(stdout());
         let vals: Vec<VValueWithPos> = read_file(&args.input_path)?;
         if args.print {
-            write_all(BufWriter::new(stdout()), &vals)?;
+            write_all(&mut out, &vals)?;
         }
         if args.dump {
-            let vals2 : Vec<VValueWithPos> = vals.iter().map(|v| v.dump()).collect();
-            write_all(BufWriter::new(stdout()), &vals2)?;
+            for val in vals {
+                // Print line information as s-expression
+                write!(&mut out, "(line {})\n", val.1.line + 1)?;
+                writeln(&mut out, &val.dump())?;
+            }
         }
 
     } else {
