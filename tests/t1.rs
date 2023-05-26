@@ -9,7 +9,7 @@
 
 use anyhow::Result;
 use std::io::Write;
-use anysexpr::{read::{read_all, write_all, writeln}, value::VValueWithPos};
+use anysexpr::{read::{read_all, write_all, writeln}, value::VValueWithPos, buffered_chars::buffered_chars};
 
 const INPUT: &[u8] = include_bytes!("t-input.scm");
 const WRITE: &[u8] = include_bytes!("t-write.scm");
@@ -17,7 +17,7 @@ const DUMP: &[u8] = include_bytes!("t-dump.scm");
 
 #[test]
 fn roundtrip1() -> Result<()> {
-    let vals = read_all(INPUT)?;
+    let vals = read_all(buffered_chars(INPUT))?;
     let mut out = Vec::<u8>::new();
     write_all(&mut out, &vals)?;
     assert_eq!(out, WRITE);
@@ -26,7 +26,8 @@ fn roundtrip1() -> Result<()> {
 
 #[test]
 fn dump() -> Result<()> {
-    let vals : Vec<VValueWithPos> = read_all(INPUT)?.iter().map(|v| v.dump()).collect();
+    let vals : Vec<VValueWithPos> =
+        read_all(buffered_chars(INPUT))?.iter().map(|v| v.dump()).collect();
     let mut out = Vec::<u8>::new();
     // Copy from examples/main.rs, keep in sync!
     for val in vals {

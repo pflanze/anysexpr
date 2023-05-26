@@ -20,7 +20,7 @@ use crate::settings::{Settings, Modes, GAMBIT_FORMAT};
 use crate::value::{VValue, Parenkind, symbol, list2, VValueWithPos};
 use crate::buffered_chars::buffered_chars;
 use std::fmt::{Formatter, Display, Debug};
-use std::io::{Read, Write};
+use std::io::{Write, BufReader};
 use std::path::Path;
 use std::fs::File;
 use thiserror::Error;
@@ -362,10 +362,9 @@ where T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>
 /// EOF. Signals ReadError::UnexpectedClosingParen if there's no
 /// expression left in the current level.
 pub fn read(
-    fh: impl Read,
+    charswithpos: impl IntoIterator<Item = anyhow::Result<(char, Pos)>>,
 ) -> Result<Option<VValueWithPos>, ReadErrorWithPos>
 {
-    let mut cs = buffered_chars(fh); // XXX must not buffer *here*!
     let settings = Settings {
         format: &GAMBIT_FORMAT,
         modes: &Modes {
@@ -375,17 +374,16 @@ pub fn read(
     };
     let depth_fuel = 500;
     // ^ the limit with default settings on Linux is around 1200
-    let mut ts = parse(&mut cs, &settings);
+    let mut ts = parse(charswithpos.into_iter(), &settings);
     token_read(&mut ts, depth_fuel)
 }
 
 /// Read (deserialize) all of an input stream to a sequence
 /// of [VValueWithPos](VValueWithPos).
 pub fn read_all(
-    fh: impl Read,
+    charswithpos: impl IntoIterator<Item = anyhow::Result<(char, Pos)>>,
 ) -> Result<Vec<VValueWithPos>, ReadErrorWithPos>
 {
-    let mut cs = buffered_chars(fh); // XX should not buffer here!
     let settings = Settings {
         format: &GAMBIT_FORMAT,
         modes: &Modes {
@@ -395,7 +393,7 @@ pub fn read_all(
     };
     let depth_fuel = 500;
     // ^ the limit with default settings on Linux is around 1200
-    let mut ts = parse(&mut cs, &settings);
+    let mut ts = parse(charswithpos.into_iter(), &settings);
     let (v, maybedot) = token_read_all(
         &mut ts,
         None,
@@ -411,7 +409,8 @@ pub fn read_all(
 /// [VValueWithPos](VValueWithPos).
 pub fn read_file(path: &Path) -> Result<Vec<VValueWithPos>, ReadErrorWithLocation> {
     let fh = io_add_file(File::open(path), path)?;
-    let v = rewp_add_file(read_all(fh), path)?;
+    let cs = buffered_chars(BufReader::new(fh));
+    let v = rewp_add_file(read_all(cs), path)?;
     Ok(v)
 }
 

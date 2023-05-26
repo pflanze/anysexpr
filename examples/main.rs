@@ -14,7 +14,7 @@ use anysexpr::parse::{Token, parse, TokenWithPos};
 use anysexpr::settings::{Settings, Modes, GAMBIT_FORMAT};
 use anysexpr::buffered_chars::buffered_chars;
 use clap::Parser as ClapParser;
-use std::io::{stdout, BufWriter, Write};
+use std::io::{stdout, BufWriter, Write, BufReader};
 use std::path::PathBuf;
 use anyhow::{Result, bail};
 
@@ -77,7 +77,7 @@ fn main() -> Result<()> {
 
         let mut out = BufWriter::new(stdout());
         let fh = std::fs::File::open(&args.input_path)?;
-        let mut cs = buffered_chars(fh);
+        let mut cs = buffered_chars(BufReader::new(fh));
         let settings = Settings {
             format: &GAMBIT_FORMAT,
             modes: &Modes {

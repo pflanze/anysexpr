@@ -17,7 +17,7 @@
 /// bottleneck.
 
 use crate::pos::Pos;
-use std::io::{self, Read};
+use std::io::BufRead;
 use anyhow::{Result, anyhow};
 use utf8::BufReadDecoder;
 use genawaiter::rc::Gen;
@@ -26,10 +26,10 @@ use genawaiter::rc::Gen;
 pub fn buffered_chars<R>(
     fh: R
 ) -> impl Iterator<Item=Result<(char, Pos)>>
-    where R: Read
+    where R: BufRead
 {
     Gen::new(|co| async move {
-        let mut inp = BufReadDecoder::new(io::BufReader::new(fh));
+        let mut inp = BufReadDecoder::new(fh);
         let mut pos = Pos { line: 0, col: 0 };
         loop {
             if let Some(r) = inp.next_strict() {
