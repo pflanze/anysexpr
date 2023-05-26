@@ -173,14 +173,14 @@ fn dec(fuel: u32) -> Result<u32, ReadError> {
 // Reads one expression. Returns None on EOF. Signals
 // ReadError::UnexpectedClosingParen if there's no expression left in
 // the current level.
-fn iterator_read(
+fn token_read(
     ts: &mut impl Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>,
     depth_fuel: u32,
 ) -> Result<Option<VValueWithPos>, ReadErrorWithPos>
 {
     let get_prefixing =
         |ts, quotepos, symname| -> Result<Option<VValueWithPos>, ReadErrorWithPos> {
-            if let Some(expr) = iterator_read(ts, dec(depth_fuel).at(quotepos)?)? {
+            if let Some(expr) = token_read(ts, dec(depth_fuel).at(quotepos)?)? {
                 Ok(Some(list2(symbol(symname).at(quotepos), expr).at(quotepos)))
             } else {
                 Err(ReadError::MissingExpressionAfter(symname).at(quotepos))
@@ -207,7 +207,7 @@ fn iterator_read(
             Token::Comment(_, _) => {}
             Token::Open(pk) => {
                 let (e, maybedot) =
-                    iterator_read_all(ts, Some((pk, pos)), dec(depth_fuel).at(pos)?)?;
+                    token_read_all(ts, Some((pk, pos)), dec(depth_fuel).at(pos)?)?;
                 return Ok(Some(VValue::List(pk, maybedot.is_some(), e).at(pos)))
             }
             Token::Close(pk) => {
@@ -225,8 +225,8 @@ fn iterator_read(
 // return the vector and the position of a Dot, if any. Checking
 // whether a dot is allowed is left to the caller. The check whether
 // the right number of items before and after the dot appeared is done
-// by iterator_read_all.
-fn iterator_read_all<T>(
+// by token_read_all.
+fn token_read_all<T>(
     ts: &mut T,
     opt_parenkind: Option<(Parenkind, Pos)>,
     depth_fuel: u32,
@@ -242,7 +242,7 @@ where T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>
             Ok((vs, None))
         }
     };
-    while let Some(r) = iterator_read(ts, depth_fuel).transpose() {
+    while let Some(r) = token_read(ts, depth_fuel).transpose() {
         match r {
             Err(ep) => {
                 let ReadErrorWithPos { err, pos } = &ep;
@@ -258,11 +258,11 @@ where T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>
                         if vs.len() == 0 {
                             return Err(ReadError::DotWithoutPrecedingItem.at(*pos))
                         }
-                        if let Some(vp) = iterator_read(ts, dec(depth_fuel).at(*pos)?)? {
+                        if let Some(vp) = token_read(ts, dec(depth_fuel).at(*pos)?)? {
                             // The next token must be a Close if we're
                             // in a list, or none otherwise:
                             let expecting_close = |ts: &mut T, result| {
-                                // Use iterator_read or get just one
+                                // Use token_read or get just one
                                 // token? Just one token: be lazy /
                                 // report the error *here* not some
                                 // later one.
@@ -376,7 +376,7 @@ pub fn read(
     let depth_fuel = 500;
     // ^ the limit with default settings on Linux is around 1200
     let mut ts = parse(&mut cs, &settings);
-    iterator_read(&mut ts, depth_fuel)
+    token_read(&mut ts, depth_fuel)
 }
 
 /// Read (deserialize) all of an input stream to a sequence
@@ -396,7 +396,7 @@ pub fn read_all(
     let depth_fuel = 500;
     // ^ the limit with default settings on Linux is around 1200
     let mut ts = parse(&mut cs, &settings);
-    let (v, maybedot) = iterator_read_all(
+    let (v, maybedot) = token_read_all(
         &mut ts,
         None,
         depth_fuel)?;
