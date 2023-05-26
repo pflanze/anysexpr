@@ -9,6 +9,7 @@
 
 use anyhow::Result;
 use std::io::Write;
+use std::str;
 use anysexpr::{read::{read_all, write_all, writeln}, value::VValueWithPos, buffered_chars::buffered_chars};
 
 const INPUT: &[u8] = include_bytes!("t-input.scm");
@@ -20,7 +21,7 @@ fn roundtrip1() -> Result<()> {
     let vals = read_all(buffered_chars(INPUT))?;
     let mut out = Vec::<u8>::new();
     write_all(&mut out, &vals)?;
-    assert_eq!(out, WRITE);
+    assert_eq!(str::from_utf8(&out), str::from_utf8(WRITE));
     Ok(())
 }
 
@@ -35,6 +36,6 @@ fn dump() -> Result<()> {
         write!(&mut out, "(line {})\n", val.1.line + 1)?;
         writeln(&mut out, &val.dump())?;
     }
-    assert_eq!(out, DUMP);
+    assert_eq!(str::from_utf8(&out), str::from_utf8(DUMP));
     Ok(())
 }
