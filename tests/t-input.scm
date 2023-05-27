@@ -51,6 +51,8 @@ sfd | wefiwjefewf | # wefjhaoiuvha fvafdv \|# oiwjefwef
 -1234/5678 ;; -617/2839
 1234/5678 ;; 617/2839
 
+ö
+
 #:foo #:| bar baz|  #:
 bizarr
 
