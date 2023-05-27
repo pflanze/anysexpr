@@ -204,6 +204,10 @@ pub fn token_read(
                 return get_prefixing(ts, pos, "unquote-splicing")
             }
             Token::Whitespace(_) => {}
+            Token::CommentExpr => {
+                // read and ignore the next expression
+                token_read(ts, dec(depth_fuel).at(pos)?)?;
+            }
             Token::Comment(_, _) => {}
             Token::Open(pk) => {
                 let (e, maybedot) =

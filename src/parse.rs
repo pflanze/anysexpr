@@ -105,6 +105,7 @@ pub enum Token {
     Open(Parenkind),
     Close(Parenkind),
     Whitespace(KString),
+    CommentExpr, // #;
     Comment(CommentStyle, KString),
 }
 
@@ -121,6 +122,7 @@ impl std::fmt::Display for Token {
             Token::Open(k) => f.write_char(k.opening()),
             Token::Close(k) => f.write_char(k.closing()),
             Token::Whitespace(s) => f.write_str(s),
+            Token::CommentExpr => f.write_str("#;"),
             Token::Comment(style, s) => {
                 match style {
                     CommentStyle::Singleline(n) => {
@@ -726,9 +728,13 @@ pub fn parse<'s>(
                         }
                     }
 
+                } else if c0 == ';' {
+                    // #;
+                    co.yield_(Ok(TokenWithPos(Token::CommentExpr, pos))).await
                 } else {
-                    // #true #false #:keyword #!special #<structure >
-                    
+                    // XX todo: #:keyword #!special #<structure >
+
+                    // #t #f #true #false
                     match read_while(Some(c0), pos, &mut cs, |c| c.is_ascii_alphabetic(),
                                      Some(&mut tmp)) {
                         Err(e) => {
