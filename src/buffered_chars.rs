@@ -8,7 +8,7 @@
 // except according to those terms.
 
 //! Get characters and their positions from anything implementing
-//! [Read](Read).
+//! [BufRead](BufRead).
 
 //! This exists because it's not clear if any dependency (some of them
 //! large) would be better.
