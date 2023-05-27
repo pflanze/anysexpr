@@ -749,8 +749,16 @@ pub fn parse<'s>(
                                         _ => {}
                                     }
                                 }
+                                if settings.format.accept_long_false_true {
+                                    if tmp == "false" {
+                                        return Ok(Atom::Bool(false))
+                                    }
+                                    if tmp == "true" {
+                                        return Ok(Atom::Bool(true))
+                                    }
+                                }
 
-                                // XXX others
+                                // XX others?
                                 Err(ParseError::InvalidHashToken.at(pos))
                             })();
                             match r {

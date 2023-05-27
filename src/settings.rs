@@ -15,24 +15,28 @@ pub struct Format {
     pub octal_escapes_in_delimited: bool,
     pub x_escape_terminated_by_semicolon_in_delimited: bool,
     pub x_escape_len: u8,
+    pub accept_long_false_true: bool,
 }
 
 pub const GAMBIT_FORMAT : Format = Format {
     octal_escapes_in_delimited: true,
     x_escape_terminated_by_semicolon_in_delimited: false,
     x_escape_len: 8,
+    accept_long_false_true: false,
 };
 
 pub const R7RS_FORMAT : Format = Format {
     octal_escapes_in_delimited: false,
     x_escape_terminated_by_semicolon_in_delimited: true,
     x_escape_len: 8, // XX check
+    accept_long_false_true: false, // XX check
 };
 
 pub const GUILE_FORMAT : Format = Format {
     octal_escapes_in_delimited: false,
     x_escape_terminated_by_semicolon_in_delimited: true, // ?
     x_escape_len: 2,
+    accept_long_false_true: true,
 };
 
 
