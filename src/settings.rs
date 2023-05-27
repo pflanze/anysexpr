@@ -16,6 +16,7 @@ pub struct Format {
     pub x_escape_terminated_by_semicolon_in_delimited: bool,
     pub x_escape_len: u8,
     pub accept_long_false_true: bool,
+    pub hashcolon_is_keyword: bool, // #:foo, keyword vs. uninterned symbol
 }
 
 pub const GAMBIT_FORMAT : Format = Format {
@@ -23,6 +24,7 @@ pub const GAMBIT_FORMAT : Format = Format {
     x_escape_terminated_by_semicolon_in_delimited: false,
     x_escape_len: 8,
     accept_long_false_true: false,
+    hashcolon_is_keyword: false,
 };
 
 pub const R7RS_FORMAT : Format = Format {
@@ -30,6 +32,7 @@ pub const R7RS_FORMAT : Format = Format {
     x_escape_terminated_by_semicolon_in_delimited: true,
     x_escape_len: 8, // XX check
     accept_long_false_true: false, // XX check
+    hashcolon_is_keyword: true, // XX check
 };
 
 pub const GUILE_FORMAT : Format = Format {
@@ -37,6 +40,7 @@ pub const GUILE_FORMAT : Format = Format {
     x_escape_terminated_by_semicolon_in_delimited: true, // ?
     x_escape_len: 2,
     accept_long_false_true: true,
+    hashcolon_is_keyword: true,
 };
 
 

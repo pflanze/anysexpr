@@ -23,6 +23,7 @@ pub enum Atom {
     Char(char),
     String(KString),
     Symbol(KString),
+    UninternedSymbol(KString), // (gensym)
     Keyword1(KString), // :foo
     Keyword2(KString), // foo:
     Number(R5RSNumber),
@@ -120,6 +121,10 @@ impl std::fmt::Display for Atom {
             }
             Atom::String(s) => fmt_stringlike(f, '"', s, true, false, false),
             Atom::Symbol(s) => fmt_stringlike(f, '|', s, false, false, false),
+            Atom::UninternedSymbol(s) => {
+                f.write_str("#:")?;
+                fmt_stringlike(f, '|', s, false, false, false)
+            }
             Atom::Keyword1(s) => fmt_stringlike(f, '|', s, false, true, false), // :foo
             Atom::Keyword2(s) => fmt_stringlike(f, '|', s, false, false, true), // foo:
             Atom::Number(n) => n.fmt(f),

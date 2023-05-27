@@ -71,6 +71,8 @@ impl VValueWithPos {
                 Atom::Keyword2(s) => listn("keyword2", chars2atoms(s.chars()), *pos),
                 Atom::String(s) => listn("string", chars2atoms(s.chars()), *pos),
                 Atom::Symbol(s) => listn("symbol", chars2atoms(s.chars()), *pos),
+                Atom::UninternedSymbol(s) =>
+                    listn("uninterned-symbol", chars2atoms(s.chars()), *pos),
                 Atom::Number(_) => list2("number", a.clone(), *pos), //X ?
             }
             VValue::List(pk, improper, vals) => {

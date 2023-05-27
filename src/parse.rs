@@ -23,7 +23,7 @@ use num::{BigInt, rational::Ratio};
 use kstring::KString;
 use thiserror::Error;
 use genawaiter::rc::Gen;
-use std::fmt::Write;
+use std::fmt::{Write, Display};
 use std::convert::TryFrom;
 
 fn take_while_and_rest<'s>(
@@ -36,15 +36,37 @@ fn take_while_and_rest<'s>(
     }
 }
 
+#[derive(Debug)]
+pub enum Context {
+    Stringlike,
+    Comment,
+    KeywordOrUninternedSymbol, // after #:
+}
+
+fn context_to_str(c: &Context) -> &str {
+    match c {
+        Context::Stringlike => "string/symbol/keyword",
+        Context::Comment => "comment",
+        Context::KeywordOrUninternedSymbol =>
+            // would need settings here!
+            "keyword or uninterned symbol",
+    }
+}
+
+impl Display for Context {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>)
+           -> Result<(), std::fmt::Error> {
+        f.write_str(context_to_str(self))
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum ParseError {
     #[error("IO error ({0}) after")]
     // XX: should not use anyhow::Error in buffered_chars.rs
     IOError(anyhow::Error),
-    #[error("unexpected EOF in string/symbol delimited by '{0}' starting")]
-    UnexpectedEOFInString(char),
-    #[error("unexpected EOF in comment starting")]
-    UnexpectedEOFInComment,
+    #[error("unexpected EOF reading {0} starting")]
+    UnexpectedEOF(Context),
     #[error("too many semicolons to start a comment")]
     TooManySemicolons,
     #[error("invalid escaped character '{0}'")]
@@ -276,7 +298,6 @@ enum ReadMode {
 // Reads exactly numdigits digits, or up to the given delimiter, in
 // which case numdigits is the max digits allowed
 fn read_hex_as_u32(
-    outerdelimiter: char,
     cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
     codestartpos: Pos,
     readmode: ReadMode,
@@ -310,21 +331,19 @@ fn read_hex_as_u32(
                     };
             }
         } else {
-            return Err(ParseError::UnexpectedEOFInString(outerdelimiter).at(lastpos));
+            return Err(ParseError::UnexpectedEOF(Context::Stringlike).at(lastpos));
         }
     }
 }
 
 // Read a hex number and convert to a char; used in read_delimited.
 fn read_hex_as_char(
-    outerdelimiter: char,
     cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
     lastpos: Pos,
     readmode: ReadMode,
     numdigits: u32,
 ) -> Result<(char, Option<(char, Pos)>), ParseErrorWithPos> {
-    let (code, mcp) = read_hex_as_u32(outerdelimiter, cs, lastpos,
-                                      readmode, numdigits)?;
+    let (code, mcp) = read_hex_as_u32(cs, lastpos, readmode, numdigits)?;
     Ok((try_u32_to_char(code).at(lastpos)?, mcp))
 }
 
@@ -387,7 +406,7 @@ fn read_delimited(
             if let Some(cp) = cs.next().transpose_io_at(lastpos)? {
                 (c, pos) = cp;
             } else {
-                return Err(ParseError::UnexpectedEOFInString(delimiter).at(startpos));
+                return Err(ParseError::UnexpectedEOF(Context::Stringlike).at(startpos));
             }
         }
         lastpos = pos;
@@ -408,16 +427,14 @@ fn read_delimited(
                 '\'' => "\'",
                 '|' => "|", // possible delimiter
                 'u' => {
-                    let (c, mcp) = read_hex_as_char(delimiter, cs, pos,
-                                                    ReadMode::Exactlen, 4)?;
+                    let (c, mcp) = read_hex_as_char(cs, pos, ReadMode::Exactlen, 4)?;
                     out.push(c);
                     maybe_next_c_pos = mcp;
                     ""
                 }
                 'U' => {
                     // Supported by Gambit, not Guile
-                    let (c, mcp) = read_hex_as_char(delimiter, cs, pos,
-                                                    ReadMode::Exactlen, 8)?;
+                    let (c, mcp) = read_hex_as_char(cs, pos, ReadMode::Exactlen, 8)?;
                     out.push(c);
                     maybe_next_c_pos = mcp;
                     ""
@@ -431,8 +448,7 @@ fn read_delimited(
                             ReadMode::FlexLen
                         };
                     let numdigits = settings.format.x_escape_len as u32;
-                    let (c, mcp) = read_hex_as_char(delimiter, cs, pos,
-                                                    mode, numdigits)?;
+                    let (c, mcp) = read_hex_as_char(cs, pos, mode, numdigits)?;
                     out.push(c);
                     maybe_next_c_pos = mcp;
                     ""
@@ -443,8 +459,8 @@ fn read_delimited(
                         read_while(Some(c), pos, cs,
                                    is_whitespace_char, None)?;
                     if mcp.is_none() {
-                        return Err(ParseError::UnexpectedEOFInString(
-                            delimiter).at(startpos))
+                        return Err(ParseError::UnexpectedEOF(
+                            Context::Stringlike).at(startpos))
                     }
                     maybe_next_c_pos = mcp;
                     ""
@@ -573,7 +589,7 @@ fn read_until(
                 out.push(c);
             }
         } else {
-            return Err(ParseError::UnexpectedEOFInComment.at(startpos))
+            return Err(ParseError::UnexpectedEOF(Context::Comment).at(startpos))
         }
     }
 }
@@ -785,8 +801,64 @@ pub fn parse<'s>(
                                                KString::from_ref(&tmp)),
                                 pos))).await
                     }
+                } else if c0 == ':' {
+                    let got_eof : bool;
+                    let csn = match cs.next().transpose() {
+                        Err(e) => {
+                            co.yield_(Err(ParseError::IOError(e).at(pos))).await;
+                            return;
+                        }
+                        Ok(v) => v
+                    };
+                    if let Some((c1, _pos1)) = csn {
+                        if c1 == '|' {
+                            match read_delimited(settings, pos, &mut cs, '|', &mut tmp) {
+                                Err(e) => {
+                                    co.yield_(Err(e)).await;
+                                    return;
+                                }
+                                Ok(()) => {
+                                    got_eof = false;
+                                }
+                            }
+                            
+                        } else {
+                            // Nonquoted symbol read. Gambit takes c1
+                            // no matter what it is.
+                            match read_while(Some(c1),
+                                             pos,
+                                             &mut cs,
+                                             is_symbol_or_number_char,
+                                             Some(&mut tmp)) {
+                                Err(e) => {
+                                    co.yield_(Err(e)).await;
+                                    return;
+                                }
+                                Ok((_lastc, mcp)) => {
+                                    maybe_next_c_pos = mcp;
+                                    got_eof = mcp.is_none();
+                                }
+                            }
+                        }
+                        let constructor =
+                            if settings.format.hashcolon_is_keyword {
+                                Atom::Keyword1
+                            } else {
+                                Atom::UninternedSymbol
+                            };
+                        co.yield_(Ok(TokenWithPos(
+                            Token::Atom(constructor(KString::from_ref(&tmp))),
+                            pos))).await;
+                        if got_eof {
+                            return;
+                        }
+                    } else {
+                        co.yield_(Err(ParseError::UnexpectedEOF(
+                            Context::KeywordOrUninternedSymbol).at(pos))).await;
+                        return;
+                    }
                 } else {
-                    // XX todo: #:keyword #!special #<structure >
+                    // XX todo: #!special #<structure >
 
                     // #t #f #true #false
                     match read_while(Some(c0), pos, &mut cs, |c| c.is_ascii_alphabetic(),
