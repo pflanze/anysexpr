@@ -41,9 +41,9 @@ See [examples/main.rs](examples/main.rs).
 * handle `#| |#` and `#;` style comments
 * Guile style keywords `#:foo`
 * performance tuning?, perhaps do not use genawaiter?
-* better error behaviour: parser should return errors but try to be
-  able to continue?
-* tests (large test corpora, round trip tests, fuzzing)
+* better error behaviour: parser should return errors but try to make
+  it possible to continue?
+* more tests (large test corpora, fuzzing round trips)
 * handle Guile, Clojure and other syntax versions
 * parametrization (generics) for tree generation / mapping (also/vs. Serde?)
 * lazy features as mentioned above
