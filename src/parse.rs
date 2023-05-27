@@ -43,6 +43,8 @@ pub enum ParseError {
     IOError(anyhow::Error),
     #[error("unexpected EOF in string/symbol delimited by '{0}' starting")]
     UnexpectedEOFInString(char),
+    #[error("unexpected EOF in comment starting")]
+    UnexpectedEOFInComment,
     #[error("too many semicolons to start a comment")]
     TooManySemicolons,
     #[error("invalid escaped character '{0}'")]
@@ -91,7 +93,7 @@ pub fn maybe_open_close(c: char) -> Option<Token> {
 #[derive(Debug, PartialEq)]
 pub enum CommentStyle {
     Singleline(u8), // ;  ;;  ;;;  etc.
-    // XXX todo: multiline, sexpr-comments
+    Multiline, // #| |#
 }
 
 #[derive(Debug, PartialEq)]
@@ -130,6 +132,11 @@ impl std::fmt::Display for Token {
                             f.write_char(';')?
                         }
                         f.write_str(s)
+                    }
+                    CommentStyle::Multiline => {
+                        f.write_str("#|")?;
+                        f.write_str(s)?;
+                        f.write_str("|#")
                     }
                 }
             }
@@ -538,6 +545,40 @@ fn read_while(
     }
 }
 
+fn read_until(
+    startpos: Pos,
+    cs: &mut impl Iterator<Item = anyhow::Result<(char, Pos)>>,
+    needle: &[char],
+    out: &mut String,
+) -> Result<(),
+            ParseErrorWithPos> {
+    out.clear();
+    let mut lastpos = startpos;
+    let mut needle_i = 0;
+    loop {
+        if let Some((c, pos)) = cs.next().transpose_io_at(lastpos)? {
+            lastpos = pos;
+
+            if c == needle[needle_i] {
+                needle_i  += 1;
+                if needle_i == needle.len() {
+                    return Ok(())
+                }
+            } else if needle_i > 0 {
+                for i in 0..needle_i {
+                    out.push(needle[i]);
+                }
+                needle_i = 0;
+            } else {
+                out.push(c);
+            }
+        } else {
+            return Err(ParseError::UnexpectedEOFInComment.at(startpos))
+        }
+    }
+}
+
+
 fn char2special_token(c: char) -> Option<Token> {
     match c {
         '\'' => Some(Token::Quote),
@@ -731,6 +772,19 @@ pub fn parse<'s>(
                 } else if c0 == ';' {
                     // #;
                     co.yield_(Ok(TokenWithPos(Token::CommentExpr, pos))).await
+                } else if c0 == '|' {
+                    // #| |#
+                    match read_until(pos, &mut cs, &['|', '#'], &mut tmp) {
+                        Err(e) => {
+                            co.yield_(Err(e)).await;
+                            return;
+                        }
+                        Ok(()) =>
+                            co.yield_(Ok(TokenWithPos(
+                                Token::Comment(CommentStyle::Multiline,
+                                               KString::from_ref(&tmp)),
+                                pos))).await
+                    }
                 } else {
                     // XX todo: #:keyword #!special #<structure >
 
