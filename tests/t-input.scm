@@ -20,6 +20,10 @@
 (a b . (c d . (e f)))
 (a b . (c d . (e . f)))
 
+#;(abc . (d . e)) notcommented
+#;
+#f ditto
+
 "\""
 "Motörhead"
 "a\nb"
