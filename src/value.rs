@@ -17,6 +17,35 @@ use crate::{number::R5RSNumber, pos::Pos};
 use std::fmt::Write;
 use kstring::KString;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Specialkind {
+    Eof,
+    Void,
+    Optional,
+    Rest,
+    Key
+}
+
+pub fn str_to_specialkind(s: &str) -> Option<Specialkind> {
+    if s == "eof" { Some(Specialkind::Eof) }
+    else if s == "void" { Some(Specialkind::Void) }
+    else if s == "optional" { Some(Specialkind::Optional) }
+    else if s == "rest" { Some(Specialkind::Rest) }
+    else if s == "key" { Some(Specialkind::Key) }
+    else { None }
+}
+
+pub fn specialkind_to_str(s: Specialkind) -> &'static str {
+    match s {
+        Specialkind::Eof => "eof",
+        Specialkind::Void => "void",
+        Specialkind::Optional => "optional",
+        Specialkind::Rest => "rest",
+        Specialkind::Key => "key",
+    }
+}
+
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Atom {
     Bool(bool),
@@ -24,6 +53,7 @@ pub enum Atom {
     String(KString),
     Symbol(KString),
     UninternedSymbol(KString), // (gensym)
+    Special(Specialkind), // #!rest etc.
     Keyword1(KString), // :foo
     Keyword2(KString), // foo:
     Number(R5RSNumber),
@@ -124,6 +154,10 @@ impl std::fmt::Display for Atom {
             Atom::UninternedSymbol(s) => {
                 f.write_str("#:")?;
                 fmt_stringlike(f, '|', s, false, false, false)
+            }
+            Atom::Special(kind) => {
+                f.write_str("#!")?;
+                f.write_str(specialkind_to_str(*kind))
             }
             Atom::Keyword1(s) => fmt_stringlike(f, '|', s, false, true, false), // :foo
             Atom::Keyword2(s) => fmt_stringlike(f, '|', s, false, false, true), // foo:

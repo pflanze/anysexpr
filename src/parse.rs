@@ -16,7 +16,7 @@
 //! interested in trees rather than atoms / tokens.
 
 use crate::pos::Pos;
-use crate::value::{Atom, Parenkind};
+use crate::value::{Atom, Parenkind, str_to_specialkind};
 use crate::number::R5RSNumber;
 use crate::settings::Settings;
 use num::{BigInt, rational::Ratio};
@@ -81,6 +81,8 @@ pub enum ParseError {
     TooManyDigits,
     #[error("invalid '#' token")]
     InvalidHashToken,
+    #[error("invalid '#!' name {0:?}")]
+    InvalidSpecialToken(Box<KString>),
 }
 
 #[derive(Error, Debug)]
@@ -857,8 +859,33 @@ pub fn parse<'s>(
                             Context::KeywordOrUninternedSymbol).at(pos))).await;
                         return;
                     }
+                } else if c0 == '!' {
+                    // #!special
+                    match read_while(None, pos, &mut cs, |c| c.is_ascii_alphabetic(),
+                                     Some(&mut tmp)) {
+                        Err(e) => {
+                            co.yield_(Err(e)).await;
+                            return;
+                        }
+                        Ok((_lastc, mcp)) => {
+                            maybe_next_c_pos = mcp;
+
+                            if let Some(specialkind) = str_to_specialkind(&tmp) {
+                                co.yield_(Ok(
+                                    TokenWithPos(
+                                        Token::Atom(Atom::Special(specialkind)),
+                                        pos))).await;
+                            } else {
+                                co.yield_(Err(
+                                    ParseError::InvalidSpecialToken(
+                                        Box::new(KString::from_ref(&tmp)))
+                                        .at(pos))).await;
+                                return;
+                            }
+                        }
+                    }
                 } else {
-                    // XX todo: #!special #<structure >
+                    // XX todo: #<structure >
 
                     // #t #f #true #false
                     match read_while(Some(c0), pos, &mut cs, |c| c.is_ascii_alphabetic(),
