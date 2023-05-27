@@ -317,12 +317,10 @@ where T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>
                                     // Round)
                                     if pk1 == Parenkind::Round {
                                         vs.append(&mut vs1);
-                                        // Now report as proper
-                                        // list--XXX AH unless
-                                        // improper1 is true. In
-                                        // which case we don't
-                                        // have the position!
-                                        return expecting_close(ts, (vs, None))
+                                        // Whether the current list
+                                        // context is proper now
+                                        // depends on whether vs1 was.
+                                        return expecting_close(ts, (vs, improper1))
                                     }
                                     // Otherwise keep nested
                                     vs.push(VValue::List(pk1, improper1, vs1)
