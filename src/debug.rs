@@ -24,7 +24,7 @@ fn listlike(
     for v in vals {
         vals2.push(v);
     }
-    VValue::List(pk, false, vals2).at(pos)
+    VValue::List(pk, None, vals2).at(pos)
 }
 
 fn list2(
@@ -35,7 +35,7 @@ fn list2(
     let mut vals : Vec<VValueWithPos> = Vec::new();
     vals.push(symbol(symname).at(pos));
     vals.push(VValue::Atom(a).at(pos));
-    VValue::List(Parenkind::Round, false, vals).at(pos)
+    VValue::List(Parenkind::Round, None, vals).at(pos)
 }
 
 fn listn(
@@ -48,7 +48,7 @@ fn listn(
     for a in atoms {
         vals.push(VValue::Atom(a).at(pos)); // XX huh losing information here
     }
-    VValue::List(Parenkind::Round, false, vals).at(pos)
+    VValue::List(Parenkind::Round, None, vals).at(pos)
 }
 
 fn integer(n: u32) -> Atom {
@@ -74,7 +74,10 @@ impl VValueWithPos {
                 Atom::Number(_) => list2("number", a.clone(), *pos), //X ?
             }
             VValue::List(pk, improper, vals) => {
-                listlike(*pk, *improper, vals.iter().map(|v| v.dump()).collect(), *pos)
+                listlike(*pk,
+                         improper.is_some(),
+                         vals.iter().map(|v| v.dump()).collect(),
+                         *pos)
             }
         }
     }

@@ -208,7 +208,7 @@ fn token_read(
             Token::Open(pk) => {
                 let (e, maybedot) =
                     token_read_all(ts, Some((pk, pos)), dec(depth_fuel).at(pos)?)?;
-                return Ok(Some(VValue::List(pk, maybedot.is_some(), e).at(pos)))
+                return Ok(Some(VValue::List(pk, maybedot, e).at(pos)))
             }
             Token::Close(pk) => {
                 return Err(ReadError::UnexpectedClosingParen(pk).at(pos))

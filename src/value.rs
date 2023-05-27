@@ -151,12 +151,13 @@ impl Parenkind {
     }
 }
 
-// Vec-based version of values; for now, hard-coded to contain
-// VValueWithPos where recursion is used.
+/// Vec-based version of values; for now, hard-coded to contain
+/// VValueWithPos in recursive places.
 #[derive(Debug)]
 pub enum VValue {
     Atom(Atom),
-    List(Parenkind, bool, Vec<VValueWithPos>), // bool: true = improper list
+    /// .1 is he position of the Dot, if any
+    List(Parenkind, Option<Pos>, Vec<VValueWithPos>),
 }
 
 impl std::fmt::Display for VValue {
@@ -174,7 +175,7 @@ impl std::fmt::Display for VValue {
                     if i + 2 < len {
                         f.write_char(' ')?;
                     } else if i + 1 < len {
-                        if *impr {
+                        if impr.is_some() {
                             f.write_str(" . ")?;
                         } else {
                             f.write_char(' ')?;
@@ -210,6 +211,6 @@ pub fn symbol(s: &str) -> VValue {
 
 /// Easily create a list with two entries
 pub fn list2(a: VValueWithPos, b: VValueWithPos) -> VValue {
-    VValue::List(Parenkind::Round, false, vec![a, b])
+    VValue::List(Parenkind::Round, None, vec![a, b])
 }
 
