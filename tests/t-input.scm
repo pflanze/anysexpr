@@ -56,6 +56,9 @@ sfd | wefiwjefewf | # wefjhaoiuvha fvafdv \|# oiwjefwef
 #:foo #:| bar baz|  #:
 bizarr
 
+(#!void #!eof #!optional #!rest #!key)
+;; #!foo must fail
+
 #t #f
 ;; #true #false  ;; supported by Guile, not Gambit
 ;; #f#t ;; Gambit reports this as invalid token
