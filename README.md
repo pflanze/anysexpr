@@ -38,7 +38,6 @@ See [examples/main.rs](examples/main.rs).
 
 * string escape features on printing
 * inexact and complex numbers
-* Guile style keywords `#:foo`
 * performance tuning?, perhaps do not use genawaiter?
 * better error behaviour: parser should return errors but try to make
   it possible to continue?
