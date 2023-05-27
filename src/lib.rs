@@ -33,7 +33,7 @@
 //! 
 //! This is an early alpha version. Even some basics are unfinished
 //! (inexact and complex numbers, some comment styles, ..).
-//! The author is quite new to Rust. He is aware of the huge list of API
+//! The author is quite new to Rust. He is aware of the many API
 //! guideline entries not currently being followed, and welcomes help in
 //! that area as well as others. The author is also quite invested in
 //! lisps and expects to support this library for a long time.
