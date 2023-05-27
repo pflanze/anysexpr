@@ -51,6 +51,9 @@ sfd | wefiwjefewf | # wefjhaoiuvha fvafdv \|# oiwjefwef
 -1234/5678 ;; -617/2839
 1234/5678 ;; 617/2839
 
+#:foo #:| bar baz|  #:
+bizarr
+
 #t #f
 ;; #true #false  ;; supported by Guile, not Gambit
 ;; #f#t ;; Gambit reports this as invalid token
