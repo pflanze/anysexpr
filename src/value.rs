@@ -18,7 +18,7 @@ use std::fmt::Write;
 use kstring::KString;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Specialkind {
+pub enum SpecialKind {
     Eof,
     Void,
     Optional,
@@ -26,25 +26,25 @@ pub enum Specialkind {
     Key
 }
 
-impl TryFrom<&str> for Specialkind {
+impl TryFrom<&str> for SpecialKind {
     type Error = ();
-    fn try_from(s: &str) -> Result<Specialkind, Self::Error> {
-        if s == "eof" { Ok(Specialkind::Eof) }
-        else if s == "void" { Ok(Specialkind::Void) }
-        else if s == "optional" { Ok(Specialkind::Optional) }
-        else if s == "rest" { Ok(Specialkind::Rest) }
-        else if s == "key" { Ok(Specialkind::Key) }
+    fn try_from(s: &str) -> Result<SpecialKind, Self::Error> {
+        if s == "eof" { Ok(SpecialKind::Eof) }
+        else if s == "void" { Ok(SpecialKind::Void) }
+        else if s == "optional" { Ok(SpecialKind::Optional) }
+        else if s == "rest" { Ok(SpecialKind::Rest) }
+        else if s == "key" { Ok(SpecialKind::Key) }
         else { Err(()) }
     }
 }
 
-pub fn specialkind_to_str(s: Specialkind) -> &'static str {
+pub fn specialkind_to_str(s: SpecialKind) -> &'static str {
     match s {
-        Specialkind::Eof => "eof",
-        Specialkind::Void => "void",
-        Specialkind::Optional => "optional",
-        Specialkind::Rest => "rest",
-        Specialkind::Key => "key",
+        SpecialKind::Eof => "eof",
+        SpecialKind::Void => "void",
+        SpecialKind::Optional => "optional",
+        SpecialKind::Rest => "rest",
+        SpecialKind::Key => "key",
     }
 }
 
@@ -56,7 +56,7 @@ pub enum Atom {
     String(KString),
     Symbol(KString),
     UninternedSymbol(KString), // (gensym)
-    Special(Specialkind), // #!rest etc.
+    Special(SpecialKind), // #!rest etc.
     Keyword1(KString), // :foo
     Keyword2(KString), // foo:
     Number(R5RSNumber),
