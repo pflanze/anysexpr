@@ -44,6 +44,7 @@
         ((char? v) `(integer->char ,(char->integer v)))
         ((keyword? v) `(keyword2 ,@(chars2atoms (keyword->string v))))
         ((string? v) `(string ,@(chars2atoms v)))
+        ((uninterned-symbol? v) `(uninterned-symbol ,@(chars2atoms (symbol->string v))))
         ((symbol? v) `(symbol ,@(chars2atoms (symbol->string v))))
         ((number? v) `(number ,v))
         ((list? v) `(list ,@(map dump v)))
