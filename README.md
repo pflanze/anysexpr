@@ -23,12 +23,9 @@ This is an S-Expression parser and formatter with the following goals:
 
 * (Perhaps) be usable on microcontrollers (small code, no-std?).
 
-This is an early alpha version. Even some basics are unfinished
-(inexact and complex numbers, ..).
-The author is quite new to Rust. He is aware of the many API
-guideline entries not currently being followed, and welcomes help in
-that area as well as others. The author is also quite invested in
-lisps and expects to support this library for a long time.
+The author is quite new to Rust. There will be API guideline entries
+not currently being followed, help in that area is as welcome as in
+other areas.
 
 ## Usage
 
