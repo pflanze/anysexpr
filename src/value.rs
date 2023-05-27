@@ -29,12 +29,14 @@ pub enum SpecialKind {
 impl TryFrom<&str> for SpecialKind {
     type Error = ();
     fn try_from(s: &str) -> Result<SpecialKind, Self::Error> {
-        if s == "eof" { Ok(SpecialKind::Eof) }
-        else if s == "void" { Ok(SpecialKind::Void) }
-        else if s == "optional" { Ok(SpecialKind::Optional) }
-        else if s == "rest" { Ok(SpecialKind::Rest) }
-        else if s == "key" { Ok(SpecialKind::Key) }
-        else { Err(()) }
+        match s {
+            "eof" => Ok(SpecialKind::Eof),
+            "void" => Ok(SpecialKind::Void),
+            "optional" => Ok(SpecialKind::Optional),
+            "rest" => Ok(SpecialKind::Rest),
+            "key" => Ok(SpecialKind::Key),
+            _ => Err(())
+        }
     }
 }
 
