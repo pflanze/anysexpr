@@ -170,10 +170,10 @@ fn dec(fuel: u32) -> Result<u32, ReadError> {
 }
 
 
-// Reads one expression. Returns None on EOF. Signals
-// ReadError::UnexpectedClosingParen if there's no expression left in
-// the current level.
-fn token_read(
+/// Read one expression. Returns None on EOF. Signals
+/// ReadError::UnexpectedClosingParen if there's no expression left in
+/// the current level.
+pub fn token_read(
     ts: &mut impl Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>,
     depth_fuel: u32,
 ) -> Result<Option<VValueWithPos>, ReadErrorWithPos>
@@ -221,12 +221,10 @@ fn token_read(
     Ok(None)
 }
 
-// Read and fill a vector of values up to the expected end paren, and
-// return the vector and the position of a Dot, if any. Checking
-// whether a dot is allowed is left to the caller. The check whether
-// the right number of items before and after the dot appeared is done
-// by token_read_all.
-fn token_read_all<T>(
+/// Read and fill a vector of values up to the expected end paren, and
+/// return the vector and the position of a Dot, if any. Checking
+/// whether a dot is allowed is left to the caller.
+pub fn token_read_all<T>(
     ts: &mut T,
     opt_parenkind: Option<(Parenkind, Pos)>,
     depth_fuel: u32,
