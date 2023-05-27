@@ -26,13 +26,16 @@ pub enum Specialkind {
     Key
 }
 
-pub fn str_to_specialkind(s: &str) -> Option<Specialkind> {
-    if s == "eof" { Some(Specialkind::Eof) }
-    else if s == "void" { Some(Specialkind::Void) }
-    else if s == "optional" { Some(Specialkind::Optional) }
-    else if s == "rest" { Some(Specialkind::Rest) }
-    else if s == "key" { Some(Specialkind::Key) }
-    else { None }
+impl TryFrom<&str> for Specialkind {
+    type Error = ();
+    fn try_from(s: &str) -> Result<Specialkind, Self::Error> {
+        if s == "eof" { Ok(Specialkind::Eof) }
+        else if s == "void" { Ok(Specialkind::Void) }
+        else if s == "optional" { Ok(Specialkind::Optional) }
+        else if s == "rest" { Ok(Specialkind::Rest) }
+        else if s == "key" { Ok(Specialkind::Key) }
+        else { Err(()) }
+    }
 }
 
 pub fn specialkind_to_str(s: Specialkind) -> &'static str {

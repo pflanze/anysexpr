@@ -16,7 +16,7 @@
 //! interested in trees rather than atoms / tokens.
 
 use crate::pos::Pos;
-use crate::value::{Atom, Parenkind, str_to_specialkind};
+use crate::value::{Atom, Parenkind, Specialkind};
 use crate::number::R5RSNumber;
 use crate::settings::Settings;
 use num::{BigInt, rational::Ratio};
@@ -870,7 +870,8 @@ pub fn parse<'s>(
                         Ok((_lastc, mcp)) => {
                             maybe_next_c_pos = mcp;
 
-                            if let Some(specialkind) = str_to_specialkind(&tmp) {
+                            let s : &str = &tmp; // XX why is this HACK needed?
+                            if let Ok(specialkind) = Specialkind::try_from(s) {
                                 co.yield_(Ok(
                                     TokenWithPos(
                                         Token::Atom(Atom::Special(specialkind)),
