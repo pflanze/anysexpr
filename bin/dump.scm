@@ -49,7 +49,17 @@
         ((number? v) `(number ,v))
         ((list? v) `(list ,@(map dump v)))
         ((pair? v) `(improper-list ,@(map dump (improper-list->list v))))
-        (else (error "dump: missing mapping for:" v))))
+        (else
+         (let ((sp (case v
+                     ((#!eof) "eof")
+                     ((#!void) "void")
+                     ((#!optional) "optional")
+                     ((#!rest) "rest")
+                     ((#!key) "key")
+                     (else #f))))
+           (if sp
+               `(special ,@(chars2atoms sp))
+               (error "dump: missing mapping for:" v))))))
 
 (for-each (lambda (v)
             (let* ((loc (##source-locat v))
