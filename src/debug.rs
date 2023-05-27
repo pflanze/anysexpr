@@ -11,7 +11,7 @@
 
 use num::BigInt;
 
-use crate::{value::{VValue, Atom, Parenkind, symbol, VValueWithPos, specialkind_to_str}, number::R5RSNumber, pos::Pos};
+use crate::{value::{VValue, Atom, Parenkind, symbol, VValueWithPos}, number::R5RSNumber, pos::Pos};
 
 fn listlike(
     pk: Parenkind,
@@ -74,7 +74,7 @@ impl VValueWithPos {
                 Atom::UninternedSymbol(s) =>
                     listn("uninterned-symbol", chars2atoms(s.chars()), *pos),
                 Atom::Special(kind) =>
-                    listn("special", chars2atoms(specialkind_to_str(*kind).chars()),
+                    listn("special", chars2atoms(<&str>::from(*kind).chars()),
                           *pos),
                 Atom::Number(_) => list2("number", a.clone(), *pos), //X ?
             }

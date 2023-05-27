@@ -38,13 +38,15 @@ impl TryFrom<&str> for SpecialKind {
     }
 }
 
-pub fn specialkind_to_str(s: SpecialKind) -> &'static str {
-    match s {
-        SpecialKind::Eof => "eof",
-        SpecialKind::Void => "void",
-        SpecialKind::Optional => "optional",
-        SpecialKind::Rest => "rest",
-        SpecialKind::Key => "key",
+impl From<SpecialKind> for &str {
+    fn from(s: SpecialKind) -> &'static str {
+        match s {
+            SpecialKind::Eof => "eof",
+            SpecialKind::Void => "void",
+            SpecialKind::Optional => "optional",
+            SpecialKind::Rest => "rest",
+            SpecialKind::Key => "key",
+        }
     }
 }
 
@@ -160,7 +162,7 @@ impl std::fmt::Display for Atom {
             }
             Atom::Special(kind) => {
                 f.write_str("#!")?;
-                f.write_str(specialkind_to_str(*kind))
+                f.write_str(<&str>::from(*kind))
             }
             Atom::Keyword1(s) => fmt_stringlike(f, '|', s, false, true, false), // :foo
             Atom::Keyword2(s) => fmt_stringlike(f, '|', s, false, false, true), // foo:
