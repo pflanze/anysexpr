@@ -10,7 +10,7 @@
 use anyhow::Result;
 use std::io::Write;
 use std::str;
-use anysexpr::{read::{read_all, write_all, writeln}, buffered_chars::buffered_chars};
+use anysexpr::{buffered_chars::buffered_chars, settings::GAMBIT_FORMAT};
 
 const INPUT: &[u8] = include_bytes!("t-input.scm");
 const WRITE: &[u8] = include_bytes!("t-write.scm");
@@ -18,22 +18,22 @@ const DUMP: &[u8] = include_bytes!("t-dump.scm");
 
 #[test]
 fn roundtrip1() -> Result<()> {
-    let vals = read_all(buffered_chars(INPUT))?;
+    let vals = GAMBIT_FORMAT.read_all(buffered_chars(INPUT))?;
     let mut out = Vec::<u8>::new();
-    write_all(&mut out, &vals)?;
+    GAMBIT_FORMAT.write_all(&mut out, &vals)?;
     assert_eq!(str::from_utf8(&out), str::from_utf8(WRITE));
     Ok(())
 }
 
 #[test]
 fn dump() -> Result<()> {
-    let vals = read_all(buffered_chars(INPUT))?;
+    let vals = GAMBIT_FORMAT.read_all(buffered_chars(INPUT))?;
     let mut out = Vec::<u8>::new();
     // Copy from examples/main.rs, keep in sync!
     for val in vals {
         // Print line information as s-expression
         write!(&mut out, "(line {})\n", val.1.line + 1)?;
-        writeln(&mut out, &val.dump())?;
+        GAMBIT_FORMAT.writeln(&mut out, &val.dump())?;
     }
     assert_eq!(str::from_utf8(&out), str::from_utf8(DUMP));
     Ok(())

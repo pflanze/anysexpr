@@ -16,7 +16,7 @@ use crate::pos::Pos;
 use crate::context::{self, Context};
 use crate::parse::{Token, TokenWithPos, parse,
                    ParseError, ParseErrorWithPos};
-use crate::settings::{Settings, Modes, GAMBIT_FORMAT};
+use crate::settings::{Settings, Modes, AnysexprFormat};
 use crate::value::{VValue, Parenkind, symbol, list2, VValueWithPos};
 use crate::buffered_chars::buffered_chars;
 use std::fmt::{Formatter, Display, Debug};
@@ -358,100 +358,114 @@ where T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>
     on_eof(vs)
 }
 
-/// Read a single expression from an input stream. Returns None on
-/// EOF. Signals ReadError::UnexpectedClosingParen if there's no
-/// expression left in the current level.
-pub fn read(
-    charswithpos: impl IntoIterator<Item = anyhow::Result<(char, Pos)>>,
-) -> Result<Option<VValueWithPos>, ReadErrorWithPos>
-{
-    let settings = Settings {
-        format: &GAMBIT_FORMAT,
-        modes: &Modes {
-            retain_whitespace: false,
-            retain_comments: false,
-        },
-    };
-    let depth_fuel = 500;
-    // ^ the limit with default settings on Linux is around 1200
-    let mut ts = parse(charswithpos.into_iter(), &settings);
-    token_read(&mut ts, depth_fuel)
-}
+impl AnysexprFormat {
 
-/// Read (deserialize) all of an input stream to a sequence
-/// of [VValueWithPos](VValueWithPos).
-pub fn read_all(
-    charswithpos: impl IntoIterator<Item = anyhow::Result<(char, Pos)>>,
-) -> Result<Vec<VValueWithPos>, ReadErrorWithPos>
-{
-    let settings = Settings {
-        format: &GAMBIT_FORMAT,
-        modes: &Modes {
-            retain_whitespace: false,
-            retain_comments: false,
-        },
-    };
-    let depth_fuel = 500;
-    // ^ the limit with default settings on Linux is around 1200
-    let mut ts = parse(charswithpos.into_iter(), &settings);
-    let (v, maybedot) = token_read_all(
-        &mut ts,
-        None,
-        depth_fuel)?;
-    if let Some(pos) = maybedot {
-        Err(ReadError::DotOutsideListContext.at(pos))
-    } else {
+    /// Read a single expression from an input stream. Returns None on
+    /// EOF. Signals ReadError::UnexpectedClosingParen if there's no
+    /// expression left in the current level.
+    pub fn read(
+        &self,
+        charswithpos: impl IntoIterator<Item = anyhow::Result<(char, Pos)>>,
+    ) -> Result<Option<VValueWithPos>, ReadErrorWithPos>
+    {
+        let settings = Settings {
+            format: self,
+            modes: &Modes {
+                retain_whitespace: false,
+                retain_comments: false,
+            },
+        };
+        let depth_fuel = 500;
+        // ^ the limit with default settings on Linux is around 1200
+        let mut ts = parse(charswithpos.into_iter(), &settings);
+        token_read(&mut ts, depth_fuel)
+    }
+
+    /// Read (deserialize) all of an input stream to a sequence
+    /// of [VValueWithPos](VValueWithPos).
+    pub fn read_all(
+        &self,
+        charswithpos: impl IntoIterator<Item = anyhow::Result<(char, Pos)>>,
+    ) -> Result<Vec<VValueWithPos>, ReadErrorWithPos>
+    {
+        let settings = Settings {
+            format: self,
+            modes: &Modes {
+                retain_whitespace: false,
+                retain_comments: false,
+            },
+        };
+        let depth_fuel = 500;
+        // ^ the limit with default settings on Linux is around 1200
+        let mut ts = parse(charswithpos.into_iter(), &settings);
+        let (v, maybedot) = token_read_all(
+            &mut ts,
+            None,
+            depth_fuel)?;
+        if let Some(pos) = maybedot {
+            Err(ReadError::DotOutsideListContext.at(pos))
+        } else {
+            Ok(v)
+        }
+    }
+
+    /// Read (deserialize) the contents of a file to a sequence of
+    /// [VValueWithPos](VValueWithPos).
+    pub fn read_file(
+        &self,
+        path: &Path
+    ) -> Result<Vec<VValueWithPos>, ReadErrorWithLocation> {
+        let fh = io_add_file(File::open(path), path)?;
+        let cs = buffered_chars(BufReader::new(fh));
+        let v = rewp_add_file(self.read_all(cs), path)?;
         Ok(v)
     }
-}
 
-/// Read (deserialize) the contents of a file to a sequence of
-/// [VValueWithPos](VValueWithPos).
-pub fn read_file(path: &Path) -> Result<Vec<VValueWithPos>, ReadErrorWithLocation> {
-    let fh = io_add_file(File::open(path), path)?;
-    let cs = buffered_chars(BufReader::new(fh));
-    let v = rewp_add_file(read_all(cs), path)?;
-    Ok(v)
-}
-
-/// Write (serialize) a [VValue](VValue) or
-/// [VValueWithPos](VValueWithPos) to an output stream.
-pub fn write<'t, T: Display + 't>(
-    out: &mut impl Write,
-    val: &'t T
-) -> Result<(), std::io::Error> {
-    write!(out, "{}", val)
-}
-
-/// Write (serialize) a [VValue](VValue) or
-/// [VValueWithPos](VValueWithPos) and a newline to an output stream.
-pub fn writeln<'t, T: Display + 't>(
-    out: &mut impl Write,
-    val: &'t T
-) -> Result<(), std::io::Error> {
-    write!(out, "{}\n", val)
-}
-
-/// Write (serialize) a sequence of [VValue](VValue) or
-/// [VValueWithPos](VValueWithPos) to an output stream.
-pub fn write_all<'t, T: Display + 't>(
-    out: &mut impl Write,
-    vals: impl IntoIterator<Item = &'t T>
-) -> Result<(), std::io::Error> {
-    let mut seen_item = false;
-    for v in vals.into_iter() {
-        if seen_item {
-            write!(out, "\n")?;
-        }
-        writeln(out, v)?;
-        seen_item = true;
+    /// Write (serialize) a [VValue](VValue) or
+    /// [VValueWithPos](VValueWithPos) to an output stream.
+    pub fn write<'t, T: Display + 't>(
+        &self,
+        out: &mut impl Write,
+        val: &'t T
+    ) -> Result<(), std::io::Error> {
+        write!(out, "{}", val)
     }
-    Ok(())
-}
 
-/// Write (serialize) a sequence of [VValue](VValue) to a file.
-pub fn write_file<'t>(path: &Path, vals: impl IntoIterator<Item = &'t VValue>)
-                      -> Result<(), std::io::Error> {
-    write_all(&mut File::open(path)?, vals)
-}
+    /// Write (serialize) a [VValue](VValue) or
+    /// [VValueWithPos](VValueWithPos) and a newline to an output stream.
+    pub fn writeln<'t, T: Display + 't>(
+        &self,
+        out: &mut impl Write,
+        val: &'t T
+    ) -> Result<(), std::io::Error> {
+        write!(out, "{}\n", val)
+    }
 
+    /// Write (serialize) a sequence of [VValue](VValue) or
+    /// [VValueWithPos](VValueWithPos) to an output stream.
+    pub fn write_all<'t, T: Display + 't>(
+        &self,
+        out: &mut impl Write,
+        vals: impl IntoIterator<Item = &'t T>
+    ) -> Result<(), std::io::Error> {
+        let mut seen_item = false;
+        for v in vals.into_iter() {
+            if seen_item {
+                write!(out, "\n")?;
+            }
+            self.writeln(out, v)?;
+            seen_item = true;
+        }
+        Ok(())
+    }
+
+    /// Write (serialize) a sequence of [VValue](VValue) to a file.
+    pub fn write_file<'t>(
+        &self,
+        path: &Path,
+        vals: impl IntoIterator<Item = &'t VValue>
+    ) -> Result<(), std::io::Error> {
+        self.write_all(&mut File::open(path)?, vals)
+    }
+
+}
