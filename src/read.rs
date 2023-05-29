@@ -382,7 +382,8 @@ impl AnysexprFormat {
         };
         let depth_fuel = 500;
         // ^ the limit with default settings on Linux is around 1200
-        TokenReader(parse(charswithpos.into_iter(), &settings)).read(depth_fuel)
+        let mut r = TokenReader(parse(charswithpos.into_iter(), &settings));
+        r.read(depth_fuel)
     }
 
     /// Read (deserialize) all of an input stream to a sequence
