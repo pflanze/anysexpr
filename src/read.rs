@@ -171,10 +171,18 @@ fn dec(fuel: u32) -> Result<u32, ReadError> {
 
 
 pub trait TokensRead<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> {
+
+    /// Read one expression. Returns None on EOF. Signals
+    /// ReadError::UnexpectedClosingParen if there's no expression left in
+    /// the current level.
     fn read(
         &mut self,
         depth_fuel: u32,
     ) -> Result<Option<VValueWithPos>, ReadErrorWithPos>;
+
+    /// Read and fill a vector of values up to the expected end paren, and
+    /// return the vector and the position of a Dot, if any. Checking
+    /// whether a dot is allowed is left to the caller.
     fn read_all(
         &mut self,
         opt_parenkind: Option<(Parenkind, Pos)>,
@@ -185,9 +193,6 @@ pub trait TokensRead<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>
 
 impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> for T {
 
-    /// Read one expression. Returns None on EOF. Signals
-    /// ReadError::UnexpectedClosingParen if there's no expression left in
-    /// the current level.
     fn read(
         &mut self,
         depth_fuel: u32,
@@ -241,9 +246,6 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> 
         Ok(None)
     }
     
-    /// Read and fill a vector of values up to the expected end paren, and
-    /// return the vector and the position of a Dot, if any. Checking
-    /// whether a dot is allowed is left to the caller.
     fn read_all(
         &mut self,
         opt_parenkind: Option<(Parenkind, Pos)>,
