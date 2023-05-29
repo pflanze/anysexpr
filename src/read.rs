@@ -170,192 +170,208 @@ fn dec(fuel: u32) -> Result<u32, ReadError> {
 }
 
 
-/// Read one expression. Returns None on EOF. Signals
-/// ReadError::UnexpectedClosingParen if there's no expression left in
-/// the current level.
-pub fn token_read(
-    ts: &mut impl Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>,
-    depth_fuel: u32,
-) -> Result<Option<VValueWithPos>, ReadErrorWithPos>
-{
-    let get_prefixing =
-        |ts, quotepos, symname| -> Result<Option<VValueWithPos>, ReadErrorWithPos> {
-            if let Some(expr) = token_read(ts, dec(depth_fuel).at(quotepos)?)? {
-                Ok(Some(list2(symbol(symname).at(quotepos), expr).at(quotepos)))
-            } else {
-                Err(ReadError::MissingExpressionAfter(symname).at(quotepos))
-            }
-        };
-    while let Some(TokenWithPos(t, pos)) = ts.next().transpose()? {
-        match t {
-            Token::Dot => {
-                return Err(ReadError::ImproperlyPlacedDot.at(pos))
-            }
-            Token::Quote => {
-                return get_prefixing(ts, pos, "quote")
-            }
-            Token::Quasiquote => {
-                return get_prefixing(ts, pos, "quasiquote")
-            }
-            Token::Unquote => {
-                return get_prefixing(ts, pos, "unquote")
-            }
-            Token::UnquoteSplicing => {
-                return get_prefixing(ts, pos, "unquote-splicing")
-            }
-            Token::Whitespace(_) => {}
-            Token::CommentExpr => {
-                // read and ignore the next expression
-                token_read(ts, dec(depth_fuel).at(pos)?)?;
-            }
-            Token::Comment(_, _) => {}
-            Token::Open(pk) => {
-                let (e, maybedot) =
-                    token_read_all(ts, Some((pk, pos)), dec(depth_fuel).at(pos)?)?;
-                return Ok(Some(VValue::List(pk, maybedot, e).at(pos)))
-            }
-            Token::Close(pk) => {
-                return Err(ReadError::UnexpectedClosingParen(pk).at(pos))
-            }
-            Token::Atom(a) => {
-                return Ok(Some(VValue::Atom(a).at(pos)));
-            }
-        }        
-    }
-    Ok(None)
+pub trait TokensRead<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> {
+    fn read(
+        &mut self,
+        depth_fuel: u32,
+    ) -> Result<Option<VValueWithPos>, ReadErrorWithPos>;
+    fn read_all(
+        &mut self,
+        opt_parenkind: Option<(Parenkind, Pos)>,
+        depth_fuel: u32,
+    ) -> Result<(Vec<VValueWithPos>, Option<Pos>), ReadErrorWithPos>;
 }
 
-/// Read and fill a vector of values up to the expected end paren, and
-/// return the vector and the position of a Dot, if any. Checking
-/// whether a dot is allowed is left to the caller.
-pub fn token_read_all<T>(
-    ts: &mut T,
-    opt_parenkind: Option<(Parenkind, Pos)>,
-    depth_fuel: u32,
-) -> Result<(Vec<VValueWithPos>, Option<Pos>), ReadErrorWithPos>
-where T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>
-{
-    let mut vs = Vec::new();
-    let on_eof = |vs| {
-        if let Some((parenkind, startpos)) = opt_parenkind {
-            Err(ReadError::PrematureEofExpectingClosingParen(parenkind)
-                .at(startpos))
-        } else {
-            Ok((vs, None))
+
+impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> for T {
+
+    /// Read one expression. Returns None on EOF. Signals
+    /// ReadError::UnexpectedClosingParen if there's no expression left in
+    /// the current level.
+    fn read(
+        &mut self,
+        depth_fuel: u32,
+    ) -> Result<Option<VValueWithPos>, ReadErrorWithPos>
+    {
+        let get_prefixing =
+            |ts: &mut T, quotepos, symname| ->
+            Result<Option<VValueWithPos>, ReadErrorWithPos> {
+                if let Some(expr) = ts.read(dec(depth_fuel).at(quotepos)?)? {
+                    Ok(Some(list2(symbol(symname).at(quotepos), expr).at(quotepos)))
+                } else {
+                    Err(ReadError::MissingExpressionAfter(symname).at(quotepos))
+                }
+            };
+        while let Some(TokenWithPos(t, pos)) = self.next().transpose()? {
+            match t {
+                Token::Dot => {
+                    return Err(ReadError::ImproperlyPlacedDot.at(pos))
+                }
+                Token::Quote => {
+                    return get_prefixing(self, pos, "quote")
+                }
+                Token::Quasiquote => {
+                    return get_prefixing(self, pos, "quasiquote")
+                }
+                Token::Unquote => {
+                    return get_prefixing(self, pos, "unquote")
+                }
+                Token::UnquoteSplicing => {
+                    return get_prefixing(self, pos, "unquote-splicing")
+                }
+                Token::Whitespace(_) => {}
+                Token::CommentExpr => {
+                    // read and ignore the next expression
+                    self.read(dec(depth_fuel).at(pos)?)?;
+                }
+                Token::Comment(_, _) => {}
+                Token::Open(pk) => {
+                    let (e, maybedot) =
+                        self.read_all(Some((pk, pos)), dec(depth_fuel).at(pos)?)?;
+                    return Ok(Some(VValue::List(pk, maybedot, e).at(pos)))
+                }
+                Token::Close(pk) => {
+                    return Err(ReadError::UnexpectedClosingParen(pk).at(pos))
+                }
+                Token::Atom(a) => {
+                    return Ok(Some(VValue::Atom(a).at(pos)));
+                }
+            }        
         }
-    };
-    while let Some(r) = token_read(ts, depth_fuel).transpose() {
-        match r {
-            Err(ep) => {
-                let ReadErrorWithPos { err, pos } = &ep;
-                match err {
-                    ReadError::IO(_) => return Err(ep),
-                    ReadError::ImproperlyPlacedDot => {
-                        if let Some((pk, _pos)) = opt_parenkind {
-                            if pk != Parenkind::Round {
-                                return Err(ReadError::DotInWrongListContext(pk)
-                                           .at(*pos))
+        Ok(None)
+    }
+    
+    /// Read and fill a vector of values up to the expected end paren, and
+    /// return the vector and the position of a Dot, if any. Checking
+    /// whether a dot is allowed is left to the caller.
+    fn read_all(
+        &mut self,
+        opt_parenkind: Option<(Parenkind, Pos)>,
+        depth_fuel: u32,
+    ) -> Result<(Vec<VValueWithPos>, Option<Pos>), ReadErrorWithPos>
+    {
+        let mut vs = Vec::new();
+        let on_eof = |vs| {
+            if let Some((parenkind, startpos)) = opt_parenkind {
+                Err(ReadError::PrematureEofExpectingClosingParen(parenkind)
+                    .at(startpos))
+            } else {
+                Ok((vs, None))
+            }
+        };
+        while let Some(r) = self.read(depth_fuel).transpose() {
+            match r {
+                Err(ep) => {
+                    let ReadErrorWithPos { err, pos } = &ep;
+                    match err {
+                        ReadError::IO(_) => return Err(ep),
+                        ReadError::ImproperlyPlacedDot => {
+                            if let Some((pk, _pos)) = opt_parenkind {
+                                if pk != Parenkind::Round {
+                                    return Err(ReadError::DotInWrongListContext(pk)
+                                               .at(*pos))
+                                }
                             }
-                        }
-                        if vs.len() == 0 {
-                            return Err(ReadError::DotWithoutPrecedingItem.at(*pos))
-                        }
-                        if let Some(vp) = token_read(ts, dec(depth_fuel).at(*pos)?)? {
-                            // The next token must be a Close if we're
-                            // in a list, or none otherwise:
-                            let expecting_close = |ts: &mut T, result| {
-                                // Use token_read or get just one
-                                // token? Just one token: be lazy /
-                                // report the error *here* not some
-                                // later one.
-                                // XX this is copying much of the end
-                                // paren check logic further down,
-                                // sigh.
-                                if let Some(TokenWithPos(t, pos)) =
-                                    ts.next().transpose()?
-                                {
-                                    match t {
-                                        Token::Close(pk_end) => {
-                                            if let Some((pk, openpos)) = opt_parenkind {
-                                                if pk_end == pk {
-                                                    Ok(result)
+                            if vs.len() == 0 {
+                                return Err(ReadError::DotWithoutPrecedingItem.at(*pos))
+                            }
+                            if let Some(vp) = self.read(dec(depth_fuel).at(*pos)?)? {
+                                // The next token must be a Close if we're
+                                // in a list, or none otherwise:
+                                let expecting_close = |ts: &mut T, result| {
+                                    // Use token_read or get just one
+                                    // token? Just one token: be lazy /
+                                    // report the error *here* not some
+                                    // later one.
+                                    // XX this is copying much of the end
+                                    // paren check logic further down,
+                                    // sigh.
+                                    if let Some(TokenWithPos(t, pos)) =
+                                        ts.next().transpose()?
+                                    {
+                                        match t {
+                                            Token::Close(pk_end) => {
+                                                if let Some((pk, openpos)) = opt_parenkind {
+                                                    if pk_end == pk {
+                                                        Ok(result)
+                                                    } else {
+                                                        Err(
+                                                            ReadError::ParenMismatch(
+                                                                pk, openpos, pk_end)
+                                                            .at(pos))
+                                                    }
                                                 } else {
                                                     Err(
-                                                        ReadError::ParenMismatch(
-                                                            pk, openpos, pk_end)
-                                                        .at(pos))
+                                                        ReadError::UnexpectedClosingParen(
+                                                            pk_end).at(pos))
                                                 }
-                                            } else {
-                                                Err(
-                                                    ReadError::UnexpectedClosingParen(
-                                                        pk_end).at(pos))
+                                            }
+                                            _ => {
+                                                Err(ReadError::ExpectingOneItemAfterDot
+                                                    .at(pos))
                                             }
                                         }
-                                        _ => {
-                                            Err(ReadError::ExpectingOneItemAfterDot
-                                                .at(pos))
+                                    } else {
+                                        if let Some((pk, openpos)) = opt_parenkind {
+                                            Err(ReadError::PrematureEofExpectingClosingParen(
+                                                pk).at(openpos))
+                                        } else {
+                                            Ok(result)
                                         }
                                     }
-                                } else {
-                                    if let Some((pk, openpos)) = opt_parenkind {
-                                        Err(ReadError::PrematureEofExpectingClosingParen(
-                                            pk).at(openpos))
-                                    } else {
-                                        Ok(result)
+                                };
+                                match vp.0 {
+                                    VValue::Atom(_) => {
+                                        vs.push(vp);
+                                        return expecting_close(self, (vs, Some(*pos)))
+                                    },
+                                    VValue::List(pk1, improper1, mut vs1) => {
+                                        // Perform "tail syntax
+                                        // optimization" if it's the same
+                                        // kind of list, ehr, also the
+                                        // Round kind (we already checked
+                                        // above that the context is
+                                        // Round)
+                                        if pk1 == Parenkind::Round {
+                                            vs.append(&mut vs1);
+                                            // Whether the current list
+                                            // context is proper now
+                                            // depends on whether vs1 was.
+                                            return expecting_close(self, (vs, improper1))
+                                        }
+                                        // Otherwise keep nested
+                                        vs.push(VValue::List(pk1, improper1, vs1)
+                                                .at(vp.1));
+                                        return expecting_close(self, (vs, Some(*pos)))
                                     }
                                 }
-                            };
-                            match vp.0 {
-                                VValue::Atom(_) => {
-                                    vs.push(vp);
-                                    return expecting_close(ts, (vs, Some(*pos)))
-                                },
-                                VValue::List(pk1, improper1, mut vs1) => {
-                                    // Perform "tail syntax
-                                    // optimization" if it's the same
-                                    // kind of list, ehr, also the
-                                    // Round kind (we already checked
-                                    // above that the context is
-                                    // Round)
-                                    if pk1 == Parenkind::Round {
-                                        vs.append(&mut vs1);
-                                        // Whether the current list
-                                        // context is proper now
-                                        // depends on whether vs1 was.
-                                        return expecting_close(ts, (vs, improper1))
-                                    }
-                                    // Otherwise keep nested
-                                    vs.push(VValue::List(pk1, improper1, vs1)
-                                            .at(vp.1));
-                                    return expecting_close(ts, (vs, Some(*pos)))
-                                }
-                            }
-                        } else {
-                            return on_eof(vs)
-                        }
-                    }
-                    ReadError::UnexpectedClosingParen(pk) => {
-                        if let Some((parenkind, startpos)) = opt_parenkind {
-                            if *pk == parenkind {
-                                return Ok((vs, None))
                             } else {
-                                return Err(ReadError::ParenMismatch(
-                                    parenkind, startpos, *pk)
-                                           .at(*pos))
+                                return on_eof(vs)
                             }
-                        } else {
-                            return Err(ep)
                         }
+                        ReadError::UnexpectedClosingParen(pk) => {
+                            if let Some((parenkind, startpos)) = opt_parenkind {
+                                if *pk == parenkind {
+                                    return Ok((vs, None))
+                                } else {
+                                    return Err(ReadError::ParenMismatch(
+                                        parenkind, startpos, *pk)
+                                               .at(*pos))
+                                }
+                            } else {
+                                return Err(ep)
+                            }
+                        }
+                        _ => return Err(ep)
                     }
-                    _ => return Err(ep)
+                }
+                Ok(v) => {
+                    vs.push(v);
                 }
             }
-            Ok(v) => {
-                vs.push(v);
-            }
         }
+        on_eof(vs)
     }
-    on_eof(vs)
 }
 
 impl AnysexprFormat {
@@ -378,7 +394,7 @@ impl AnysexprFormat {
         let depth_fuel = 500;
         // ^ the limit with default settings on Linux is around 1200
         let mut ts = parse(charswithpos.into_iter(), &settings);
-        token_read(&mut ts, depth_fuel)
+        ts.read(depth_fuel)
     }
 
     /// Read (deserialize) all of an input stream to a sequence
@@ -398,8 +414,7 @@ impl AnysexprFormat {
         let depth_fuel = 500;
         // ^ the limit with default settings on Linux is around 1200
         let mut ts = parse(charswithpos.into_iter(), &settings);
-        let (v, maybedot) = token_read_all(
-            &mut ts,
+        let (v, maybedot) = ts.read_all(
             None,
             depth_fuel)?;
         if let Some(pos) = maybedot {
