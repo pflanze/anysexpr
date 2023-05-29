@@ -39,7 +39,6 @@ See [examples/main.rs](examples/main.rs).
 * inexact and complex numbers
 * performance tuning (perhaps do not use genawaiter? optimize error struct sizes.)
 * intern the symbols ([value.rs](src/value.rs))
-* change functions to take settings (as methods on it)
 * better error behaviour: parser should return errors but try to make
   it possible to continue? Does that require passing the next token in
   the error and re-using it, or should parsing use Peekable?
