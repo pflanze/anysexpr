@@ -33,11 +33,16 @@ See [examples/main.rs](examples/main.rs).
 
 ## Todo
 
-* string escape features on printing
+* better string printing: escape features
+* better symbol printing: more properly detect whether delimiters are
+  needed
 * inexact and complex numbers
-* performance tuning?, perhaps do not use genawaiter?
+* performance tuning (perhaps do not use genawaiter? optimize error struct sizes.)
+* intern the symbols ([value.rs](src/value.rs))
+* change functions to take settings (as methods on it)
 * better error behaviour: parser should return errors but try to make
-  it possible to continue?
+  it possible to continue? Does that require passing the next token in
+  the error and re-using it, or should parsing use Peekable?
 * more tests (large test corpora, fuzzing round trips)
 * handle Guile, Clojure and other syntax versions
 * parametrization (generics) for tree generation / mapping (also/vs. Serde?)
