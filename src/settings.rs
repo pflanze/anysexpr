@@ -11,7 +11,7 @@
 //! data.
 
 #[derive(Debug)]
-pub struct Format {
+pub struct AnysexprFormat {
     pub octal_escapes_in_delimited: bool,
     pub x_escape_terminated_by_semicolon_in_delimited: bool,
     pub x_escape_len: u8,
@@ -19,7 +19,7 @@ pub struct Format {
     pub hashcolon_is_keyword: bool, // #:foo, keyword vs. uninterned symbol
 }
 
-pub const GAMBIT_FORMAT : Format = Format {
+pub const GAMBIT_FORMAT : AnysexprFormat = AnysexprFormat {
     octal_escapes_in_delimited: true,
     x_escape_terminated_by_semicolon_in_delimited: false,
     x_escape_len: 8,
@@ -27,7 +27,7 @@ pub const GAMBIT_FORMAT : Format = Format {
     hashcolon_is_keyword: false,
 };
 
-pub const R7RS_FORMAT : Format = Format {
+pub const R7RS_FORMAT : AnysexprFormat = AnysexprFormat {
     octal_escapes_in_delimited: false,
     x_escape_terminated_by_semicolon_in_delimited: true,
     x_escape_len: 8, // XX check
@@ -35,7 +35,7 @@ pub const R7RS_FORMAT : Format = Format {
     hashcolon_is_keyword: true, // XX check
 };
 
-pub const GUILE_FORMAT : Format = Format {
+pub const GUILE_FORMAT : AnysexprFormat = AnysexprFormat {
     octal_escapes_in_delimited: false,
     x_escape_terminated_by_semicolon_in_delimited: true, // ?
     x_escape_len: 2,
@@ -52,7 +52,7 @@ pub struct Modes {
 
 #[derive(Debug)]
 pub struct Settings<'t> {
-    pub format: &'t Format,
+    pub format: &'t AnysexprFormat,
     pub modes: &'t Modes,
 }
 
