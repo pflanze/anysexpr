@@ -169,37 +169,20 @@ fn dec(fuel: u32) -> Result<u32, ReadError> {
     Ok(fuel - 1)
 }
 
+pub struct TokenReader<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>>(T);
 
-pub trait TokensRead<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> {
+impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokenReader<T> {
 
     /// Read one expression. Returns None on EOF. Signals
     /// ReadError::UnexpectedClosingParen if there's no expression left in
     /// the current level.
-    fn read(
-        &mut self,
-        depth_fuel: u32,
-    ) -> Result<Option<VValueWithPos>, ReadErrorWithPos>;
-
-    /// Read and fill a vector of values up to the expected end paren, and
-    /// return the vector and the position of a Dot, if any. Checking
-    /// whether a dot is allowed is left to the caller.
-    fn read_all(
-        &mut self,
-        opt_parenkind: Option<(Parenkind, Pos)>,
-        depth_fuel: u32,
-    ) -> Result<(Vec<VValueWithPos>, Option<Pos>), ReadErrorWithPos>;
-}
-
-
-impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> for T {
-
-    fn read(
+    pub fn read(
         &mut self,
         depth_fuel: u32,
     ) -> Result<Option<VValueWithPos>, ReadErrorWithPos>
     {
         let get_prefixing =
-            |ts: &mut T, quotepos, symname| ->
+            |ts: &mut TokenReader<T>, quotepos, symname| ->
             Result<Option<VValueWithPos>, ReadErrorWithPos> {
                 if let Some(expr) = ts.read(dec(depth_fuel).at(quotepos)?)? {
                     Ok(Some(list2(symbol(symname).at(quotepos), expr).at(quotepos)))
@@ -207,7 +190,7 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> 
                     Err(ReadError::MissingExpressionAfter(symname).at(quotepos))
                 }
             };
-        while let Some(TokenWithPos(t, pos)) = self.next().transpose()? {
+        while let Some(TokenWithPos(t, pos)) = self.0.next().transpose()? {
             match t {
                 Token::Dot => {
                     return Err(ReadError::ImproperlyPlacedDot.at(pos))
@@ -246,7 +229,10 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> 
         Ok(None)
     }
     
-    fn read_all(
+    /// Read and fill a vector of values up to the expected end paren, and
+    /// return the vector and the position of a Dot, if any. Checking
+    /// whether a dot is allowed is left to the caller.
+    pub fn read_all(
         &mut self,
         opt_parenkind: Option<(Parenkind, Pos)>,
         depth_fuel: u32,
@@ -280,7 +266,8 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> 
                             if let Some(vp) = self.read(dec(depth_fuel).at(*pos)?)? {
                                 // The next token must be a Close if we're
                                 // in a list, or none otherwise:
-                                let expecting_close = |ts: &mut T, result| {
+                                let expecting_close = |ts: &mut TokenReader<T>, result|
+                                {
                                     // Use token_read or get just one
                                     // token? Just one token: be lazy /
                                     // report the error *here* not some
@@ -289,7 +276,7 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> 
                                     // paren check logic further down,
                                     // sigh.
                                     if let Some(TokenWithPos(t, pos)) =
-                                        ts.next().transpose()?
+                                        ts.0.next().transpose()?
                                     {
                                         match t {
                                             Token::Close(pk_end) => {
@@ -395,8 +382,7 @@ impl AnysexprFormat {
         };
         let depth_fuel = 500;
         // ^ the limit with default settings on Linux is around 1200
-        let mut ts = parse(charswithpos.into_iter(), &settings);
-        ts.read(depth_fuel)
+        TokenReader(parse(charswithpos.into_iter(), &settings)).read(depth_fuel)
     }
 
     /// Read (deserialize) all of an input stream to a sequence
@@ -415,8 +401,8 @@ impl AnysexprFormat {
         };
         let depth_fuel = 500;
         // ^ the limit with default settings on Linux is around 1200
-        let mut ts = parse(charswithpos.into_iter(), &settings);
-        let (v, maybedot) = ts.read_all(
+        let (v, maybedot) = TokenReader(
+            parse(charswithpos.into_iter(), &settings)).read_all(
             None,
             depth_fuel)?;
         if let Some(pos) = maybedot {
