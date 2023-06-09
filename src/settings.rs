@@ -54,9 +54,15 @@ pub const GUILE_FORMAT : AnysexprFormat = AnysexprFormat {
 
 #[derive(Debug)]
 pub struct Modes {
+    /// Whether to report whitespace from `parse` (currently always
+    /// dropped in `read`).
     pub retain_whitespace: bool,
+    /// Whether to report comments from `parse` (currently always
+    /// dropped in `read`).
     pub retain_comments: bool,
-    /// `false` => disallow `(a . b)`; `(a . (b))` is still allowed
+    /// `false` => disallow `(a . b)` where b is not a proper list.
+    /// `(a . (b))` is still allowed if the format supports the
+    /// syntax.
     pub allow_improper_lists: bool,
 }
 
