@@ -376,7 +376,7 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> 
     }
 }
 
-impl AnysexprFormat {
+impl<'f> AnysexprFormat<'f> {
 
     /// Read a single expression from an input stream. Returns None on
     /// EOF. Signals ReadError::UnexpectedClosingParen if there's no

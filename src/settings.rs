@@ -11,7 +11,8 @@
 //! data.
 
 #[derive(Debug)]
-pub struct AnysexprFormat {
+pub struct AnysexprFormat<'t> {
+    pub name: &'t str,
     pub octal_escapes_in_delimited: bool,
     pub x_escape_terminated_by_semicolon_in_delimited: bool,
     pub x_escape_len: u8,
@@ -20,6 +21,7 @@ pub struct AnysexprFormat {
 }
 
 pub const GAMBIT_FORMAT : AnysexprFormat = AnysexprFormat {
+    name: "Gambit",
     octal_escapes_in_delimited: true,
     x_escape_terminated_by_semicolon_in_delimited: false,
     x_escape_len: 8,
@@ -28,6 +30,7 @@ pub const GAMBIT_FORMAT : AnysexprFormat = AnysexprFormat {
 };
 
 pub const R7RS_FORMAT : AnysexprFormat = AnysexprFormat {
+    name: "R7RS",
     octal_escapes_in_delimited: false,
     x_escape_terminated_by_semicolon_in_delimited: true,
     x_escape_len: 8, // XX check
@@ -36,6 +39,7 @@ pub const R7RS_FORMAT : AnysexprFormat = AnysexprFormat {
 };
 
 pub const GUILE_FORMAT : AnysexprFormat = AnysexprFormat {
+    name: "Guile",
     octal_escapes_in_delimited: false,
     x_escape_terminated_by_semicolon_in_delimited: true, // ?
     x_escape_len: 2,
@@ -52,7 +56,7 @@ pub struct Modes {
 
 #[derive(Debug)]
 pub struct Settings<'t> {
-    pub format: &'t AnysexprFormat,
+    pub format: &'t AnysexprFormat<'t>,
     pub modes: &'t Modes,
 }
 
