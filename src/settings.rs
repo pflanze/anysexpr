@@ -56,7 +56,7 @@ pub const GUILE_FORMAT : AnysexprFormat = AnysexprFormat {
 pub struct Modes {
     pub retain_whitespace: bool,
     pub retain_comments: bool,
-    /// false => disallow (a . b); (a . (b)) is still allowed
+    /// `false` => disallow `(a . b)`; `(a . (b))` is still allowed
     pub allow_improper_lists: bool,
 }
 
