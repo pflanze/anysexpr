@@ -47,6 +47,8 @@ See [examples/main.rs](examples/main.rs).
 * parametrization (generics) for tree generation / mapping (also/vs. Serde?)
 * lazy features as mentioned above
 * some level of support for pretty-printing
+* sharing?
+* cycles?
 
 Orthogonally:
 
