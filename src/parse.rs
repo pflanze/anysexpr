@@ -135,6 +135,9 @@ pub enum Token {
     Comment(CommentStyle, KString),
 }
 
+/// NOTE: display doesn't know the settings, so can't target
+/// particular S-expression syntax variants! Use separate write
+/// functionality instead (TODO).
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>)
            -> Result<(), std::fmt::Error> {
@@ -986,8 +989,9 @@ pub fn parse<'s>(
                     Ok((lastc, mcp)) => {
                         let lastc = lastc.unwrap();
                         let r = (|| {
-                            if tmp.len() == 1 && lastc == '.' {
-                                return Ok(TokenWithPos(Token::Dot, pos));
+                            if tmp.len() == 1 && lastc == '.'
+                                && settings.format.has_dotted_pairs {
+                                    return Ok(TokenWithPos(Token::Dot, pos));
                             }
                             if is_digit(c) {
                                 if let Some(r) = read_number(false, &tmp) {
