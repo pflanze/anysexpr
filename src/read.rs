@@ -239,7 +239,7 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> 
                     return Err(ReadError::UnexpectedClosingParen(pk).at(pos))
                 }
                 Token::Atom(a) => {
-                    return Ok(Some(VValue::Atom(a).at(pos)));
+                    return Ok(Some(VValue::Atom(a).at(pos)))
                 }
             }        
         }
