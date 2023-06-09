@@ -7,6 +7,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! An example that also serves to inspect how inputs are being parsed
+//! and to generate test output.
+
 use anysexpr::pos::Pos;
 use anysexpr::value::{Parenkind, VValueWithPos};
 use anysexpr::parse::{Token, parse, TokenWithPos};
