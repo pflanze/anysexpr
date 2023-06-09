@@ -10,15 +10,21 @@
 use anyhow::Result;
 use std::io::Write;
 use std::str;
-use anysexpr::{buffered_chars::buffered_chars, settings::GAMBIT_FORMAT};
+use anysexpr::{buffered_chars::buffered_chars, settings::{GAMBIT_FORMAT, Modes}};
 
 const INPUT: &[u8] = include_bytes!("t-input.scm");
 const WRITE: &[u8] = include_bytes!("t-write.scm");
 const DUMP: &[u8] = include_bytes!("t-dump.scm");
 
+const MODES: Modes = Modes {
+    allow_improper_lists: true,
+    retain_whitespace: false,
+    retain_comments: false,
+};
+
 #[test]
 fn roundtrip1() -> Result<()> {
-    let vals = GAMBIT_FORMAT.read_all(buffered_chars(INPUT))?;
+    let vals = GAMBIT_FORMAT.read_all(buffered_chars(INPUT), &MODES)?;
     let mut out = Vec::<u8>::new();
     GAMBIT_FORMAT.write_all(&mut out, &vals)?;
     assert_eq!(str::from_utf8(&out), str::from_utf8(WRITE));
@@ -27,7 +33,7 @@ fn roundtrip1() -> Result<()> {
 
 #[test]
 fn dump() -> Result<()> {
-    let vals = GAMBIT_FORMAT.read_all(buffered_chars(INPUT))?;
+    let vals = GAMBIT_FORMAT.read_all(buffered_chars(INPUT), &MODES)?;
     let mut out = Vec::<u8>::new();
     // Copy from examples/main.rs, keep in sync!
     for val in vals {

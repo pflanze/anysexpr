@@ -394,15 +394,12 @@ impl<'f> AnysexprFormat<'f> {
     pub fn read(
         &self,
         charswithpos: impl IntoIterator<Item = anyhow::Result<(char, Pos)>>,
+        modes: &Modes,
     ) -> Result<Option<VValueWithPos>, ReadErrorWithPos>
     {
         let settings = Settings {
             format: self,
-            modes: &Modes {
-                allow_improper_lists: true,
-                retain_whitespace: false,
-                retain_comments: false,
-            },
+            modes,
         };
         let depth_fuel = 500;
         // ^ the limit with default settings on Linux is around 1200
@@ -415,15 +412,12 @@ impl<'f> AnysexprFormat<'f> {
     pub fn read_all(
         &self,
         charswithpos: impl IntoIterator<Item = anyhow::Result<(char, Pos)>>,
+        modes: &Modes,
     ) -> Result<Vec<VValueWithPos>, ReadErrorWithPos>
     {
         let settings = Settings {
             format: self,
-            modes: &Modes {
-                allow_improper_lists: true,
-                retain_whitespace: false,
-                retain_comments: false,
-            },
+            modes,
         };
         let depth_fuel = 500;
         // ^ the limit with default settings on Linux is around 1200
@@ -443,11 +437,12 @@ impl<'f> AnysexprFormat<'f> {
     /// [VValueWithPos](VValueWithPos).
     pub fn read_file(
         &self,
-        path: &Path
+        path: &Path,
+        modes: &Modes,
     ) -> Result<Vec<VValueWithPos>, ReadErrorWithLocation> {
         let fh = io_add_file(File::open(path), path)?;
         let cs = buffered_chars(BufReader::new(fh));
-        let v = rewp_add_file(self.read_all(cs), path)?;
+        let v = rewp_add_file(self.read_all(cs, modes), path)?;
         Ok(v)
     }
 

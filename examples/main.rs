@@ -60,6 +60,12 @@ struct Args {
     input_path: PathBuf,
 }
 
+const MODES: Modes = Modes {
+    allow_improper_lists: true,
+    retain_whitespace: false,
+    retain_comments: false,
+};
+
 fn main() -> Result<()> {
     let args = Args::parse();
 
@@ -68,7 +74,7 @@ fn main() -> Result<()> {
         // Slurp in the whole file contents as a list of trees, then
         // optionally print those.
         let mut out = BufWriter::new(stdout());
-        let vals: Vec<VValueWithPos> = GAMBIT_FORMAT.read_file(&args.input_path)?;
+        let vals: Vec<VValueWithPos> = GAMBIT_FORMAT.read_file(&args.input_path, &MODES)?;
         if args.print {
             GAMBIT_FORMAT.write_all(&mut out, &vals)?;
         }
