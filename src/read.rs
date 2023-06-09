@@ -28,7 +28,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum ReadError {
     #[error("{0}")]
-    PE(ParseError),
+    PE(Box<ParseError>),
     #[error("{0}")]
     IO(std::io::Error),
     #[error("missing item after '.'")]
@@ -58,7 +58,7 @@ pub enum ReadError {
     PrematureEofExpectingClosingParen(Parenkind),
     #[error("missing expression after {0}")]
     // MissingExpressionAfter(Token), // XX large because of Token, right?
-    MissingExpressionAfter(&'static str),
+    MissingExpressionAfter(Box<&'static str>),
  }
 
 #[derive(Error, Debug)]
@@ -109,7 +109,7 @@ impl From<ParseErrorWithPos> for ReadErrorWithPos {
     fn from(ep: ParseErrorWithPos) -> ReadErrorWithPos {
         let ParseErrorWithPos { err, pos } = ep;
         ReadErrorWithPos {
-            err: ReadError::PE(err),
+            err: ReadError::PE(Box::new(err)),
             pos
         }
     }
@@ -209,7 +209,8 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> 
                 if let Some(expr) = ts.read(dec(depth_fuel).at(quotepos)?, modes)? {
                     Ok(Some(list2(symbol(symname).at(quotepos), expr).at(quotepos)))
                 } else {
-                    Err(ReadError::MissingExpressionAfter(symname).at(quotepos))
+                    Err(ReadError::MissingExpressionAfter(Box::new(symname))
+                        .at(quotepos))
                 }
             };
         while let Some(TokenWithPos(t, pos)) = self.next().transpose()? {

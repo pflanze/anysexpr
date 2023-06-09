@@ -25,11 +25,11 @@
 8	read	&&'static str
 8	read	Box<&'static str>
 12	read	(Parenkind, Pos, Parenkind)
-24	read	ReadError
-32	read	ReadErrorWithPos
+16	read	ReadError
+24	read	ReadErrorWithPos
 24	read	ReadErrorWithContext
 16	read	ReadErrorWithLocation
 72	read	Result<Option<VValueWithPos>, ReadErrorWithPos>
 48	read	Result<(Vec<VValueWithPos>, Option<Pos>), ReadErrorWithPos>
-40	read	Result<Vec<VValueWithPos>, ReadErrorWithPos>
+32	read	Result<Vec<VValueWithPos>, ReadErrorWithPos>
 32	read	Result<Vec<VValueWithPos>, ReadErrorWithLocation>
