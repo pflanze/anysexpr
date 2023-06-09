@@ -10,7 +10,7 @@
 //! Not an example, but a program to show the struct sizes for
 //! possible optimization.
 
-use anysexpr::{settings::{AnysexprFormat, Modes, Settings}, context::{FileContext, SpecialContext}, parse::{ParseErrorWithPos, TokenWithPos, Token, ParseError}, pos::Pos, read::{ReadErrorWithPos, ReadErrorWithContext, ReadErrorWithLocation, ReadError}, value::{VValue, VValueWithPos, SpecialKind, Atom, Parenkind}, number::R5RSNumber};
+use anysexpr::{settings::{AnysexprFormat, Modes, Settings, GAMBIT_FORMAT}, context::{FileContext, SpecialContext}, parse::{ParseErrorWithPos, TokenWithPos, Token, ParseError, parse}, pos::Pos, read::{ReadErrorWithPos, ReadErrorWithContext, ReadErrorWithLocation, ReadError}, value::{VValue, VValueWithPos, SpecialKind, Atom, Parenkind}, number::R5RSNumber, buffered_chars::buffered_chars};
 use kstring::KString;
 use num::BigInt;
 
@@ -35,6 +35,14 @@ macro_rules! ctx {
         }
     }
 }
+
+// And, fun, get the return type size of a function:
+fn sz<R, F: FnOnce() -> R>(
+    _f: F
+) -> usize {
+    std::mem::size_of::<R>()
+}
+
 
 fn main() {
     {
@@ -74,6 +82,22 @@ fn main() {
         p!{Result<(Option<char>, Option<(char, Pos)>), ParseErrorWithPos>};
         // Item in impl Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>> + 's:
         p!{Result<TokenWithPos, ParseErrorWithPos>};
+
+        {
+            // And, fun, the size of the return type of a fn:
+            let settings = Settings {
+                format: &GAMBIT_FORMAT,
+                modes: &Modes {
+                    retain_comments: true,
+                    retain_whitespace: true,
+                    allow_improper_lists: true,
+                }
+            };
+            pr("parse", "return type of `parse`", sz(|| {
+                let cs = buffered_chars("hi".as_bytes());
+                parse(cs, &settings)
+            }));
+        }
     }
     
     {
@@ -93,4 +117,5 @@ fn main() {
         p!{Result<Vec<VValueWithPos>, ReadErrorWithPos>};
         p!{Result<Vec<VValueWithPos>, ReadErrorWithLocation>};
     }
+
 }
