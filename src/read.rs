@@ -15,7 +15,7 @@
 use crate::pos::Pos;
 use crate::context::{self, Context};
 use crate::parse::{Token, TokenWithPos, parse,
-                   ParseError, ParseErrorWithPos, Tokens};
+                   ParseError, ParseErrorWithPos};
 use crate::settings::{Settings, Modes, AnysexprFormat};
 use crate::value::{VValue, Parenkind, symbol, list2, VValueWithPos};
 use crate::buffered_chars::buffered_chars;
@@ -169,8 +169,9 @@ fn dec(fuel: u32) -> Result<u32, ReadError> {
     Ok(fuel - 1)
 }
 
+pub struct TokenReader<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>>(T);
 
-impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> Tokens<T> {
+impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokenReader<T> {
 
     /// Read one expression. Returns None on EOF. Signals
     /// ReadError::UnexpectedClosingParen if there's no expression left in
@@ -181,7 +182,7 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> Tokens<T> {
     ) -> Result<Option<VValueWithPos>, ReadErrorWithPos>
     {
         let get_prefixing =
-            |ts: &mut Tokens<T>, quotepos, symname| ->
+            |ts: &mut TokenReader<T>, quotepos, symname| ->
             Result<Option<VValueWithPos>, ReadErrorWithPos> {
                 if let Some(expr) = ts.read(dec(depth_fuel).at(quotepos)?)? {
                     Ok(Some(list2(symbol(symname).at(quotepos), expr).at(quotepos)))
@@ -189,7 +190,7 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> Tokens<T> {
                     Err(ReadError::MissingExpressionAfter(symname).at(quotepos))
                 }
             };
-        while let Some(TokenWithPos(t, pos)) = self.next().transpose()? {
+        while let Some(TokenWithPos(t, pos)) = self.0.next().transpose()? {
             match t {
                 Token::Dot => {
                     return Err(ReadError::ImproperlyPlacedDot.at(pos))
@@ -265,7 +266,7 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> Tokens<T> {
                             if let Some(vp) = self.read(dec(depth_fuel).at(*pos)?)? {
                                 // The next token must be a Close if we're
                                 // in a list, or none otherwise:
-                                let expecting_close = |ts: &mut Tokens<T>, result|
+                                let expecting_close = |ts: &mut TokenReader<T>, result|
                                 {
                                     // Use token_read or get just one
                                     // token? Just one token: be lazy /
@@ -275,7 +276,7 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> Tokens<T> {
                                     // paren check logic further down,
                                     // sigh.
                                     if let Some(TokenWithPos(t, pos)) =
-                                        ts.next().transpose()?
+                                        ts.0.next().transpose()?
                                     {
                                         match t {
                                             Token::Close(pk_end) => {
@@ -381,8 +382,8 @@ impl AnysexprFormat {
         };
         let depth_fuel = 500;
         // ^ the limit with default settings on Linux is around 1200
-        let mut ts = parse(charswithpos.into_iter(), &settings);
-        ts.read(depth_fuel)
+        let mut r = TokenReader(parse(charswithpos.into_iter(), &settings));
+        r.read(depth_fuel)
     }
 
     /// Read (deserialize) all of an input stream to a sequence
@@ -401,8 +402,8 @@ impl AnysexprFormat {
         };
         let depth_fuel = 500;
         // ^ the limit with default settings on Linux is around 1200
-        let (v, maybedot) =
-            parse(charswithpos.into_iter(), &settings).read_all(
+        let (v, maybedot) = TokenReader(
+            parse(charswithpos.into_iter(), &settings)).read_all(
             None,
             depth_fuel)?;
         if let Some(pos) = maybedot {

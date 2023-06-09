@@ -25,7 +25,6 @@ use thiserror::Error;
 use genawaiter::rc::Gen;
 use std::fmt::{Write, Display};
 use std::convert::TryFrom;
-use std::ops::{Deref, DerefMut};
 
 fn take_while_and_rest<'s>(
     s: &'s str, pred: impl Fn(char) -> bool
@@ -627,45 +626,15 @@ fn is_digit(c: char) -> bool {
     c.is_ascii_digit()
 }
 
-
-pub struct Tokens<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>>(T);
-
-impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>>
-    Deref for Tokens<T>
-{
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>>
-    DerefMut for Tokens<T>
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>>
-    Iterator for Tokens<T>
-{
-    type Item = Result<TokenWithPos, ParseErrorWithPos>;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
-    }
-}
-
-
 /// Parse a stream of characters and their positions into a stream of
 /// tokens (atoms or opening/closing tokens).
 pub fn parse<'s>(
     cs: impl Iterator<Item = anyhow::Result<(char, Pos)>> + 's,
     settings: &'s Settings,
 )
-    -> Tokens<impl Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>> + 's>
+    -> impl Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>> + 's
 {
-    let gen = Gen::new(|co| async move {
+    Gen::new(|co| async move {
         let mut cs = cs;
         let mut tmp = String::new();
         let mut maybe_next_c_pos = None;
@@ -1058,6 +1027,5 @@ pub fn parse<'s>(
                 }
             }
         }
-    });
-    Tokens(gen.into_iter())
+    }).into_iter()
 }
