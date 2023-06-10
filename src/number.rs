@@ -10,11 +10,12 @@
 //! A representation of the number types possible in S-expressions
 //! (numeric tower).
 
-use std::ops::{Mul, Add, Neg};
+use std::ops::{Mul, Add, Neg, Rem, Div};
 
 use num::BigInt;
 
-#[derive(Debug, Clone, PartialEq)]
+// XXX how does PartialOrd work here? OK?
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Integer {
     Small(i64),
     Big(Box<BigInt>)
@@ -55,6 +56,75 @@ impl Mul<i64> for Integer {
                 }
             Integer::Big(b) =>
                 Integer::Big(Box::new(*b * i1))
+        }
+    }
+}
+
+impl Rem<&Integer> for &Integer {
+    type Output = Integer;
+    fn rem(self, b: &Integer) -> <Self as Rem<&Integer>>::Output {
+        match (self, b) {
+            (Integer::Small(a), Integer::Small(b)) =>
+                Integer::Small(a % b),
+            
+            (Integer::Big(a), Integer::Small(b)) => {
+                let r = &**a % b;
+                if let Ok(r1) = (&r).try_into() {
+                    Integer::Small(r1)
+                } else {
+                    Integer::Big(Box::new(r))
+                }
+            }
+
+            (Integer::Big(a), Integer::Big(b)) => {
+                let r = &**a % &**b;
+                if let Ok(r1) = (&r).try_into() {
+                    Integer::Small(r1)
+                } else {
+                    Integer::Big(Box::new(r))
+                }
+            }
+
+            (Integer::Small(a), Integer::Big(_)) => {
+                // We guarantee that we only use Big if Small is too
+                // small. Hence:
+                Integer::Small(*a)
+            }
+        }
+    }
+}
+
+impl Div<&Integer> for &Integer {
+    type Output = Integer;
+    fn div(self, b: &Integer) -> <Self as Rem<&Integer>>::Output {
+        match (self, b) {
+            (Integer::Small(a), Integer::Small(b)) =>
+                // XXX overflows   MAX/-1   also % above ?
+                Integer::Small(*a / *b),
+            
+            (Integer::Big(a), Integer::Small(b)) => {
+                let r = &**a / *b;
+                if let Ok(r1) = (&r).try_into() {
+                    Integer::Small(r1)
+                } else {
+                    Integer::Big(Box::new(r))
+                }
+            }
+
+            (Integer::Big(a), Integer::Big(b)) => {
+                let r = &**a / &**b;
+                if let Ok(r1) = (&r).try_into() {
+                    Integer::Small(r1)
+                } else {
+                    Integer::Big(Box::new(r))
+                }
+            }
+
+            (Integer::Small(_), Integer::Big(_)) => {
+                // We guarantee that we only use Big if Small is too
+                // small. Hence:
+                Integer::Small(0)
+            }
         }
     }
 }
@@ -100,6 +170,23 @@ impl Neg for Integer {
     }
 }
 
+impl Neg for &Integer {
+    type Output = Integer;
+    fn neg(self) -> <Self as Neg>::Output {
+        match self {
+            Integer::Small(i0) =>
+                if let Some(r) = i0.checked_neg() {
+                    Integer::Small(r)
+                } else {
+                    let b0 : BigInt = (*i0).into();
+                    Integer::Big(Box::new(-b0))
+                }
+            Integer::Big(b) =>
+                Integer::Big(Box::new(- (**b).clone()))
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Rational(pub Integer, pub Integer);
 
@@ -110,6 +197,45 @@ impl Neg for Rational {
     }
 }
 
+fn abs(x: &Integer) -> Integer {
+    if x < &0.into() {
+        -x
+    } else {
+        x.clone()
+    }
+}
+
+fn euclid(a: &Integer, b: &Integer) -> Integer {
+    if b == &0.into() {
+        a.clone()
+    } else {
+        let r = a % b;
+        euclid(b, &r)
+    }
+}
+
+fn gcd_positive(a: &Integer, b: &Integer) -> Integer {
+    if a < b {
+        euclid(b, a)
+    } else {
+        euclid(a, b)
+    }
+}
+
+fn gcd(a: &Integer, b: &Integer) -> Integer {
+    gcd_positive(&abs(a), &abs(b))
+}
+
+impl Rational {
+    pub fn new(n: Integer, d: Integer) -> Rational {
+        let f = gcd(&n, &d);
+        if &f == &1.into() {
+            Rational(n, d)
+        } else {
+            Rational(&n / &f, &d / &f)
+        }
+    }
+}
 
 /// TODO: complex numbers, inexact reals
 #[derive(Debug, Clone, PartialEq)]

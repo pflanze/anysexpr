@@ -237,7 +237,7 @@ fn read_number(is_neg: bool, s: &str) -> Option<R5RSNumber> {
                 }
             }
             let denom = n;
-            let n = Rational(numer, denom);
+            let n = Rational::new(numer, denom);
             return Some(R5RSNumber::Rational(Box::new(if is_neg { -n } else { n })))
         } else {
             // XXX: floating point, complex, and all the mixes.
