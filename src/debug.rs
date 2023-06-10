@@ -9,8 +9,6 @@
 
 //! Utilities for debugging the anysexpr library
 
-use num::BigInt;
-
 use crate::{value::{VValue, Atom, Parenkind, symbol, VValueWithPos}, number::R5RSNumber, pos::Pos};
 
 fn listlike(
@@ -52,7 +50,7 @@ fn listn(
 }
 
 fn integer(n: u32) -> Atom {
-    Atom::Number(R5RSNumber::Integer(BigInt::from(n)))
+    Atom::Number(R5RSNumber::Integer(n.into()))
 }
 
 fn chars2atoms(cs: impl Iterator<Item=char>) -> impl Iterator<Item=Atom> {

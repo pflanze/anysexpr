@@ -17,9 +17,8 @@
 
 use crate::pos::Pos;
 use crate::value::{Atom, Parenkind, SpecialKind};
-use crate::number::R5RSNumber;
+use crate::number::{R5RSNumber, Integer, Rational};
 use crate::settings::Settings;
-use num::{BigInt, rational::Ratio};
 use kstring::KString;
 use thiserror::Error;
 use genawaiter::rc::Gen;
@@ -222,14 +221,14 @@ impl<T> TransposeIoAt<T> for Option<anyhow::Result<T>> {
 
 
 fn read_number(is_neg: bool, s: &str) -> Option<R5RSNumber> {
-    let mut n: BigInt = 0.into();
+    let mut n: Integer = 0.into();
     let mut cs = s.chars();
     while let Some(c) = cs.next() {
         if c.is_ascii_digit() {
             n = n * 10 + c.to_digit(10).unwrap();
         } else if c == '/' {
             let numer = n;
-            let mut n: BigInt = 0.into();
+            let mut n: Integer = 0.into();
             while let Some(c) = cs.next() {
                 if c.is_ascii_digit() {
                     n = n * 10 + c.to_digit(10).unwrap();
@@ -238,7 +237,7 @@ fn read_number(is_neg: bool, s: &str) -> Option<R5RSNumber> {
                 }
             }
             let denom = n;
-            let n = Ratio::<BigInt>::new(numer, denom);
+            let n = Rational(numer, denom);
             return Some(R5RSNumber::Rational(Box::new(if is_neg { -n } else { n })))
         } else {
             // XXX: floating point, complex, and all the mixes.
