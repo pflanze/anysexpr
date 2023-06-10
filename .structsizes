@@ -1,0 +1,35 @@
+24	context	FileContext
+24	context	SpecialContext
+8	context	Pos
+24	settings	AnysexprFormat
+3	settings	Modes
+16	settings	Settings
+32	value	BigInt
+40	value	R5RSNumber
+24	value	KString
+1	value	SpecialKind
+48	value	Atom
+56	value	VValue
+64	value	VValueWithPos
+56	parse	Token
+64	parse	TokenWithPos
+16	parse	ParseError
+24	parse	ParseErrorWithPos
+32	parse	Result<(u32, Option<(char, Pos)>), ParseErrorWithPos>
+32	parse	Result<(char, Option<(char, Pos)>), ParseErrorWithPos>
+32	parse	Result<(Option<char>, Option<(char, Pos)>), ParseErrorWithPos>
+72	parse	Result<TokenWithPos, ParseErrorWithPos>
+16	parse	return type of `parse`
+8	read	std::io::Error
+16	read	&'static str
+8	read	&&'static str
+8	read	Box<&'static str>
+12	read	(Parenkind, Pos, Parenkind)
+24	read	ReadError
+32	read	ReadErrorWithPos
+24	read	ReadErrorWithContext
+16	read	ReadErrorWithLocation
+72	read	Result<Option<VValueWithPos>, ReadErrorWithPos>
+48	read	Result<(Vec<VValueWithPos>, Option<Pos>), ReadErrorWithPos>
+40	read	Result<Vec<VValueWithPos>, ReadErrorWithPos>
+32	read	Result<Vec<VValueWithPos>, ReadErrorWithLocation>
