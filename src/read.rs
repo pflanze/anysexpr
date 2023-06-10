@@ -44,6 +44,8 @@ pub enum ReadError {
     DotInWrongListContext(Parenkind),
     #[error("improperly placed '.'")]
     ImproperlyPlacedDot,
+    #[error("improper lists disallowed in given mode")]
+    ImproperListsNotAllowedByMode,
     #[error("nesting too deep")]
     NestingTooDeep,
     #[error("'{}' {1} expects '{}', got '{}'",
@@ -178,6 +180,7 @@ pub trait TokensRead<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>
     fn read(
         &mut self,
         depth_fuel: u32,
+        modes: &Modes,
     ) -> Result<Option<VValueWithPos>, ReadErrorWithPos>;
 
     /// Read and fill a vector of values up to the expected end paren, and
@@ -187,6 +190,7 @@ pub trait TokensRead<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>
         &mut self,
         opt_parenkind: Option<(Parenkind, Pos)>,
         depth_fuel: u32,
+        modes: &Modes,
     ) -> Result<(Vec<VValueWithPos>, Option<Pos>), ReadErrorWithPos>;
 }
 
@@ -196,12 +200,13 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> 
     fn read(
         &mut self,
         depth_fuel: u32,
+        modes: &Modes,
     ) -> Result<Option<VValueWithPos>, ReadErrorWithPos>
     {
         let get_prefixing =
             |ts: &mut T, quotepos, symname| ->
             Result<Option<VValueWithPos>, ReadErrorWithPos> {
-                if let Some(expr) = ts.read(dec(depth_fuel).at(quotepos)?)? {
+                if let Some(expr) = ts.read(dec(depth_fuel).at(quotepos)?, modes)? {
                     Ok(Some(list2(symbol(symname).at(quotepos), expr).at(quotepos)))
                 } else {
                     Err(ReadError::MissingExpressionAfter(symname).at(quotepos))
@@ -227,12 +232,15 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> 
                 Token::Whitespace(_) => {}
                 Token::CommentExpr => {
                     // read and ignore the next expression
-                    self.read(dec(depth_fuel).at(pos)?)?;
+                    self.read(dec(depth_fuel).at(pos)?, modes)?;
                 }
                 Token::Comment(_, _) => {}
                 Token::Open(pk) => {
                     let (e, maybedot) =
-                        self.read_all(Some((pk, pos)), dec(depth_fuel).at(pos)?)?;
+                        self.read_all(Some((pk, pos)), dec(depth_fuel).at(pos)?, modes)?;
+                    if maybedot.is_some() && !modes.allow_improper_lists {
+                        return Err(ReadError::ImproperListsNotAllowedByMode.at(maybedot.unwrap()))
+                    }
                     return Ok(Some(VValue::List(pk, maybedot, e).at(pos)))
                 }
                 Token::Close(pk) => {
@@ -250,6 +258,7 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> 
         &mut self,
         opt_parenkind: Option<(Parenkind, Pos)>,
         depth_fuel: u32,
+        modes: &Modes,
     ) -> Result<(Vec<VValueWithPos>, Option<Pos>), ReadErrorWithPos>
     {
         let mut vs = Vec::new();
@@ -261,7 +270,7 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> 
                 Ok((vs, None))
             }
         };
-        while let Some(r) = self.read(depth_fuel).transpose() {
+        while let Some(r) = self.read(depth_fuel, modes).transpose() {
             match r {
                 Err(ep) => {
                     let ReadErrorWithPos { err, pos } = &ep;
@@ -277,7 +286,8 @@ impl<T: Iterator<Item = Result<TokenWithPos, ParseErrorWithPos>>> TokensRead<T> 
                             if vs.len() == 0 {
                                 return Err(ReadError::DotWithoutPrecedingItem.at(*pos))
                             }
-                            if let Some(vp) = self.read(dec(depth_fuel).at(*pos)?)? {
+                            if let Some(vp) = self.read(dec(depth_fuel).at(*pos)?,
+                                                        modes)? {
                                 // The next token must be a Close if we're
                                 // in a list, or none otherwise:
                                 let expecting_close = |ts: &mut T, result| {
@@ -389,6 +399,7 @@ impl<'f> AnysexprFormat<'f> {
         let settings = Settings {
             format: self,
             modes: &Modes {
+                allow_improper_lists: true,
                 retain_whitespace: false,
                 retain_comments: false,
             },
@@ -396,7 +407,7 @@ impl<'f> AnysexprFormat<'f> {
         let depth_fuel = 500;
         // ^ the limit with default settings on Linux is around 1200
         let mut ts = parse(charswithpos.into_iter(), &settings);
-        ts.read(depth_fuel)
+        ts.read(depth_fuel, settings.modes)
     }
 
     /// Read (deserialize) all of an input stream to a sequence
@@ -409,6 +420,7 @@ impl<'f> AnysexprFormat<'f> {
         let settings = Settings {
             format: self,
             modes: &Modes {
+                allow_improper_lists: true,
                 retain_whitespace: false,
                 retain_comments: false,
             },
@@ -418,7 +430,8 @@ impl<'f> AnysexprFormat<'f> {
         let mut ts = parse(charswithpos.into_iter(), &settings);
         let (v, maybedot) = ts.read_all(
             None,
-            depth_fuel)?;
+            depth_fuel,
+            settings.modes)?;
         if let Some(pos) = maybedot {
             Err(ReadError::DotOutsideListContext.at(pos))
         } else {

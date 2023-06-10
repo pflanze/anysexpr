@@ -28,22 +28,33 @@ struct Args {
     /// Build up a tree of all content (default: stream tokens)
     #[clap(short, long, value_parser)]
     ast: bool,
+
     /// Print the parsed data
     #[clap(long, value_parser)]
     print: bool,
+
     /// Write a debugging dump of the parsed data (with --ast, as
     /// s-expression, without --ast, using Debug instead of Display)
     #[clap(long, value_parser)]
     dump: bool,
+
     /// Show the token position (only with --print and no --ast)
     #[clap(long, value_parser)]
     pos: bool,
+
     /// Show the whitespace (only with --print and no --ast)
     #[clap(short, long, value_parser)]
     whitespace: bool,
+
     /// Show the comments (only with --print and no --ast)
     #[clap(short, long, value_parser)]
     comments: bool,
+
+    /// Whether to allow improper lists to be read (only relevant with
+    /// --ast)
+    #[clap(long, value_parser)]
+    allow_improper_lists: bool,
+
     /// Path to the input file
     #[clap(value_parser, required(true))]
     input_path: PathBuf,
@@ -80,6 +91,7 @@ fn main() -> Result<()> {
         let settings = Settings {
             format: &GAMBIT_FORMAT,
             modes: &Modes {
+                allow_improper_lists: args.allow_improper_lists,
                 retain_whitespace: args.whitespace,
                 retain_comments: args.comments,
             }};
