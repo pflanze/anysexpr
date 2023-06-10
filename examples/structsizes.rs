@@ -10,7 +10,7 @@
 //! Not an example, but a program to show the struct sizes for
 //! possible optimization.
 
-use anysexpr::{settings::{AnysexprFormat, Modes, Settings, GAMBIT_FORMAT}, context::{FileContext, SpecialContext}, parse::{ParseErrorWithPos, TokenWithPos, Token, ParseError, parse}, pos::Pos, read::{ReadErrorWithPos, ReadErrorWithContext, ReadErrorWithLocation, ReadError}, value::{VValue, VValueWithPos, SpecialKind, Atom, Parenkind}, number::R5RSNumber, buffered_chars::buffered_chars};
+use anysexpr::{settings::{AnysexprFormat, Modes, Settings, GAMBIT_FORMAT}, context::{FileContext, SpecialContext}, parse::{ParseErrorWithPos, TokenWithPos, Token, ParseError, parse}, pos::Pos, read::{ReadErrorWithPos, ReadErrorWithContext, ReadErrorWithLocation, ReadError}, value::{VValue, VValueWithPos, SpecialKind, Atom, Parenkind}, number::{R5RSNumber, Integer, Rational}, buffered_chars::buffered_chars};
 use kstring::KString;
 use num::BigInt;
 
@@ -62,6 +62,8 @@ fn main() {
     {
         ctx!("value");
         p!{BigInt};
+        p!{Integer};
+        p!{Rational};
         p!{R5RSNumber};
         p!{KString};
         p!{SpecialKind};

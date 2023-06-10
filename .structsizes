@@ -5,6 +5,8 @@
 3	settings	Modes
 16	settings	Settings
 32	value	BigInt
+16	value	Integer
+32	value	Rational
 24	value	R5RSNumber
 24	value	KString
 1	value	SpecialKind
